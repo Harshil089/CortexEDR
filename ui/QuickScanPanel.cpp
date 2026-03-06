@@ -10,140 +10,151 @@ QuickScanPanel::QuickScanPanel(EDRBridge* bridge, QWidget* parent)
 
 void QuickScanPanel::setupUI()
 {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(16);
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(28, 24, 28, 24);
+    root->setSpacing(14);
 
-    // Title
-    titleLabel_ = new QLabel("Quick Scan");
-    titleLabel_->setProperty("class", "title");
-    QFont titleFont("Segoe UI", 24, QFont::Bold);
-    titleLabel_->setFont(titleFont);
+    // ── Page header ──────────────────────────────────────────────────────────
+    QLabel* pageTitle = new QLabel("Quick Scan");
+    pageTitle->setObjectName("PageTitle");
+    QFont tf("Segoe UI", 20, QFont::DemiBold);
+    pageTitle->setFont(tf);
 
-    QLabel* desc = new QLabel("Scan common threat locations: user profile, downloads, and temp folders");
-    desc->setProperty("class", "subtitle");
-    desc->setWordWrap(true);
+    QLabel* pageSub = new QLabel("Select a folder to scan for threats");
+    pageSub->setObjectName("PageSubtitle");
 
-    layout->addWidget(titleLabel_);
-    layout->addWidget(desc);
-    layout->addSpacing(16);
+    root->addWidget(pageTitle);
+    root->addWidget(pageSub);
+    root->addSpacing(4);
 
-    // Status section
-    QFrame* statusFrame = new QFrame();
-    statusFrame->setObjectName("scanStatusFrame");
-    statusFrame->setStyleSheet(
-        "QFrame#scanStatusFrame { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 20px; }");
+    // ── Status card ──────────────────────────────────────────────────────────
+    QFrame* statusCard = new QFrame();
+    statusCard->setObjectName("Card");
+    {
+        QVBoxLayout* sl = new QVBoxLayout(statusCard);
+        sl->setContentsMargins(20, 16, 20, 16);
+        sl->setSpacing(10);
 
-    QVBoxLayout* statusLayout = new QVBoxLayout(statusFrame);
-    statusLayout->setContentsMargins(24, 20, 24, 20);
-    statusLayout->setSpacing(12);
+        statusLabel_ = new QLabel("Ready");
+        QFont sf("Segoe UI", 14, QFont::DemiBold);
+        statusLabel_->setFont(sf);
+        statusLabel_->setStyleSheet("color: rgba(255,255,255,0.35);");
 
-    statusLabel_ = new QLabel("Ready to scan");
-    QFont statusFont("Segoe UI", 16, QFont::DemiBold);
-    statusLabel_->setFont(statusFont);
-    statusLabel_->setStyleSheet("color: #8B949E;");
+        progressBar_ = new QProgressBar();
+        progressBar_->setObjectName("ScanningBar");
+        progressBar_->setRange(0, 100);
+        progressBar_->setValue(0);
+        progressBar_->setTextVisible(false);
 
-    progressBar_ = new QProgressBar();
-    progressBar_->setMinimum(0);
-    progressBar_->setMaximum(100);
-    progressBar_->setValue(0);
-    progressBar_->setMinimumHeight(28);
-    progressBar_->setTextVisible(true);
+        currentFileLabel_ = new QLabel();
+        currentFileLabel_->setStyleSheet(
+            "color: rgba(255,255,255,0.25); font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px;");
+        currentFileLabel_->setWordWrap(false);
 
-    currentFileLabel_ = new QLabel("");
-    currentFileLabel_->setProperty("class", "dimText");
-    currentFileLabel_->setWordWrap(true);
-    QFont fileFont("Cascadia Code", 10);
-    currentFileLabel_->setFont(fileFont);
+        threatsCountLabel_ = new QLabel("Threats found: 0");
+        QFont tf2("Segoe UI", 12, QFont::DemiBold);
+        threatsCountLabel_->setFont(tf2);
+        threatsCountLabel_->setStyleSheet("color: #4ade80;");
 
-    threatsCountLabel_ = new QLabel("Threats found: 0");
-    QFont threatFont("Segoe UI", 13, QFont::DemiBold);
-    threatsCountLabel_->setFont(threatFont);
-    threatsCountLabel_->setStyleSheet("color: #4CAF50;");
+        sl->addWidget(statusLabel_);
+        sl->addWidget(progressBar_);
+        sl->addWidget(currentFileLabel_);
+        sl->addWidget(threatsCountLabel_);
+    }
+    root->addWidget(statusCard);
 
-    statusLayout->addWidget(statusLabel_);
-    statusLayout->addWidget(progressBar_);
-    statusLayout->addWidget(currentFileLabel_);
-    statusLayout->addWidget(threatsCountLabel_);
+    // ── Selected path display ────────────────────────────────────────────────
+    selectedPathLabel_ = new QLabel();
+    selectedPathLabel_->setStyleSheet(
+        "color: rgba(255,255,255,0.25); font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px;");
+    selectedPathLabel_->setWordWrap(true);
+    root->addWidget(selectedPathLabel_);
 
-    layout->addWidget(statusFrame);
+    // ── Inline error label ───────────────────────────────────────────────────
+    errorLabel_ = new QLabel();
+    errorLabel_->setStyleSheet("color: #f87171; font-size: 12px;");
+    errorLabel_->setVisible(false);
+    root->addWidget(errorLabel_);
 
-    // Buttons
-    QHBoxLayout* btnLayout = new QHBoxLayout();
-    btnLayout->setSpacing(12);
+    // ── Action buttons ───────────────────────────────────────────────────────
+    QHBoxLayout* btnRow = new QHBoxLayout();
+    btnRow->setSpacing(10);
 
-    startBtn_ = new QPushButton("  Start Quick Scan");
-    startBtn_->setProperty("class", "primary");
-    startBtn_->setMinimumHeight(44);
+    startBtn_ = new QPushButton("Select Folder and Scan");
+    startBtn_->setObjectName("PrimaryBtn");
+    startBtn_->setFixedHeight(34);
     startBtn_->setCursor(Qt::PointingHandCursor);
-    QFont btnFont("Segoe UI", 13, QFont::DemiBold);
-    startBtn_->setFont(btnFont);
 
-    cancelBtn_ = new QPushButton("  Cancel");
-    cancelBtn_->setProperty("class", "danger");
-    cancelBtn_->setMinimumHeight(44);
+    cancelBtn_ = new QPushButton("Cancel");
+    cancelBtn_->setObjectName("DestructiveBtn");
+    cancelBtn_->setFixedHeight(34);
     cancelBtn_->setCursor(Qt::PointingHandCursor);
-    cancelBtn_->setFont(btnFont);
     cancelBtn_->setVisible(false);
 
-    connect(startBtn_, &QPushButton::clicked, this, &QuickScanPanel::startScan);
+    connect(startBtn_,  &QPushButton::clicked, this,    &QuickScanPanel::startScan);
     connect(cancelBtn_, &QPushButton::clicked, bridge_, &EDRBridge::cancelScan);
 
-    btnLayout->addWidget(startBtn_);
-    btnLayout->addWidget(cancelBtn_);
-    btnLayout->addStretch();
+    btnRow->addWidget(startBtn_);
+    btnRow->addWidget(cancelBtn_);
+    btnRow->addStretch();
+    root->addLayout(btnRow);
 
-    layout->addLayout(btnLayout);
-
-    // Results log
-    QLabel* resultsTitle = new QLabel("Scan Results");
-    resultsTitle->setProperty("class", "sectionTitle");
-    QFont secFont("Segoe UI", 14, QFont::DemiBold);
-    resultsTitle->setFont(secFont);
+    // ── Detections log ───────────────────────────────────────────────────────
+    QLabel* detTitle = new QLabel("DETECTIONS");
+    detTitle->setObjectName("SectionTitle");
+    root->addSpacing(4);
+    root->addWidget(detTitle);
 
     resultsLog_ = new QTextEdit();
     resultsLog_->setReadOnly(true);
-    resultsLog_->setMinimumHeight(150);
-    resultsLog_->setPlaceholderText("Scan results will appear here...");
+    resultsLog_->setPlaceholderText("No threats detected.");
+    resultsLog_->setMinimumHeight(120);
+    root->addWidget(resultsLog_, 1);
 
-    layout->addSpacing(8);
-    layout->addWidget(resultsTitle);
-    layout->addWidget(resultsLog_, 1);
-
-    // Summary frame (hidden until scan completes)
+    // ── Summary banner (hidden until scan complete) ───────────────────────────
     summaryFrame_ = new QFrame();
-    summaryFrame_->setObjectName("summaryFrame");
-    summaryFrame_->setStyleSheet(
-        "QFrame#summaryFrame { background-color: #161B22; border: 1px solid #4CAF50; border-radius: 12px; padding: 16px; }");
+    summaryFrame_->setObjectName("Card");
     summaryFrame_->setVisible(false);
-
-    QHBoxLayout* sumLayout = new QHBoxLayout(summaryFrame_);
-    sumLayout->setContentsMargins(20, 16, 20, 16);
-    summaryLabel_ = new QLabel("");
-    QFont sumFont("Segoe UI", 14, QFont::DemiBold);
-    summaryLabel_->setFont(sumFont);
-    sumLayout->addWidget(summaryLabel_);
-
-    layout->addWidget(summaryFrame_);
+    {
+        QHBoxLayout* sl = new QHBoxLayout(summaryFrame_);
+        sl->setContentsMargins(20, 12, 20, 12);
+        summaryLabel_ = new QLabel();
+        QFont sf("Segoe UI", 13, QFont::DemiBold);
+        summaryLabel_->setFont(sf);
+        sl->addWidget(summaryLabel_);
+    }
+    root->addWidget(summaryFrame_);
 }
+
+// ─── State Machine ────────────────────────────────────────────────────────────
 
 void QuickScanPanel::startScan()
 {
+    errorLabel_->setVisible(false);
+
+    QString folder = QFileDialog::getExistingDirectory(
+        this, "Select Folder to Scan", QString(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+
+    if (folder.isEmpty())
+        return;
+
     setScanningState();
     threatsFound_ = 0;
     resultsLog_->clear();
     summaryFrame_->setVisible(false);
-    bridge_->startQuickScan();
+    selectedPathLabel_->setText("Scanning: " + folder);
+    bridge_->startCustomScan({folder});
 }
 
 void QuickScanPanel::setIdleState()
 {
-    statusLabel_->setText("Ready to scan");
-    statusLabel_->setStyleSheet("color: #8B949E;");
+    statusLabel_->setText("Ready");
+    statusLabel_->setStyleSheet("color: rgba(255,255,255,0.35); font-size: 14px; font-weight: 600;");
     progressBar_->setValue(0);
-    currentFileLabel_->setText("");
+    currentFileLabel_->clear();
     threatsCountLabel_->setText("Threats found: 0");
-    threatsCountLabel_->setStyleSheet("color: #4CAF50;");
+    threatsCountLabel_->setStyleSheet("color: #4ade80; font-size: 12px; font-weight: 600;");
     startBtn_->setVisible(true);
     startBtn_->setEnabled(true);
     cancelBtn_->setVisible(false);
@@ -152,10 +163,12 @@ void QuickScanPanel::setIdleState()
 void QuickScanPanel::setScanningState()
 {
     statusLabel_->setText("Scanning...");
-    statusLabel_->setStyleSheet("color: #00BCD4;");
+    statusLabel_->setStyleSheet("color: #60a5fa; font-size: 14px; font-weight: 600;");
     startBtn_->setVisible(false);
     cancelBtn_->setVisible(true);
 }
+
+// ─── Signal Handlers ──────────────────────────────────────────────────────────
 
 void QuickScanPanel::onProgressChanged(int percent)
 {
@@ -164,11 +177,9 @@ void QuickScanPanel::onProgressChanged(int percent)
 
 void QuickScanPanel::onCurrentFileChanged(const QString& filePath)
 {
-    // Show only the last ~80 chars of the path
-    QString display = filePath;
-    if (display.length() > 80) {
-        display = "..." + display.right(77);
-    }
+    QString display = filePath.length() > 90
+        ? "..." + filePath.right(87)
+        : filePath;
     currentFileLabel_->setText(display);
 }
 
@@ -176,13 +187,13 @@ void QuickScanPanel::onThreatDetected(const QString& filePath, const QString& th
 {
     threatsFound_++;
     threatsCountLabel_->setText(QString("Threats found: %1").arg(threatsFound_));
-    threatsCountLabel_->setStyleSheet("color: #F44336;");
+    threatsCountLabel_->setStyleSheet("color: #f87171; font-size: 12px; font-weight: 600;");
 
-    QString entry = QString("<span style='color:#F44336;'>THREAT</span> "
-                            "<span style='color:#E6EDF3;'>%1</span> "
-                            "<span style='color:#8B949E;'>in %2</span>")
-                        .arg(threatName, filePath);
-    resultsLog_->append(entry);
+    resultsLog_->append(
+        QString("<span style='color:#f87171;font-weight:600;'>THREAT</span> "
+                "<span style='color:rgba(255,255,255,0.85);'>%1</span> "
+                "<span style='color:rgba(255,255,255,0.35);'>&nbsp;in %2</span>")
+            .arg(threatName.toHtmlEscaped(), filePath.toHtmlEscaped()));
 }
 
 void QuickScanPanel::onScanFinished(int totalFiles, int threatsFound)
@@ -191,23 +202,24 @@ void QuickScanPanel::onScanFinished(int totalFiles, int threatsFound)
     currentFileLabel_->setText("Scan complete");
 
     if (threatsFound > 0) {
-        statusLabel_->setText("Threats detected!");
-        statusLabel_->setStyleSheet("color: #F44336;");
+        statusLabel_->setText("Threats detected");
+        statusLabel_->setStyleSheet("color: #f87171; font-size: 14px; font-weight: 600;");
         summaryFrame_->setStyleSheet(
-            "QFrame#summaryFrame { background-color: #161B22; border: 1px solid #F44336; border-radius: 12px; }");
+            "QFrame { background-color: rgba(239,68,68,0.06); "
+            "border: 1px solid rgba(239,68,68,0.15); border-radius: 12px; }");
         summaryLabel_->setText(
-            QString("Scan complete: %1 files scanned, %2 threats detected")
+            QString("%1 files scanned  —  %2 threat(s) detected")
                 .arg(totalFiles).arg(threatsFound));
-        summaryLabel_->setStyleSheet("color: #F44336;");
+        summaryLabel_->setStyleSheet("color: #f87171;");
     } else {
         statusLabel_->setText("No threats found");
-        statusLabel_->setStyleSheet("color: #4CAF50;");
+        statusLabel_->setStyleSheet("color: #4ade80; font-size: 14px; font-weight: 600;");
         summaryFrame_->setStyleSheet(
-            "QFrame#summaryFrame { background-color: #161B22; border: 1px solid #4CAF50; border-radius: 12px; }");
+            "QFrame { background-color: rgba(34,197,94,0.06); "
+            "border: 1px solid rgba(34,197,94,0.15); border-radius: 12px; }");
         summaryLabel_->setText(
-            QString("Scan complete: %1 files scanned, no threats detected")
-                .arg(totalFiles));
-        summaryLabel_->setStyleSheet("color: #4CAF50;");
+            QString("%1 files scanned  —  No threats detected").arg(totalFiles));
+        summaryLabel_->setStyleSheet("color: #4ade80;");
     }
 
     summaryFrame_->setVisible(true);

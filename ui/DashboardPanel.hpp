@@ -25,31 +25,40 @@ signals:
 
 private:
     void setupUI();
-    QFrame* createStatusCard(const QString& title, const QString& value,
-                             const QString& iconText, const QString& color);
 
     EDRBridge* bridge_;
 
-    // Status cards
-    QLabel* protectionStatusLabel_;
-    QLabel* protectionStatusIcon_;
-    QLabel* lastScanLabel_;
-    QLabel* threatsLabel_;
-    QLabel* healthLabel_;
-    QFrame* healthIndicator_;
-
-    // Quick scan button
+    // Header
     QPushButton* quickScanBtn_;
+    QLabel*      connectionIndicator_;
+    QLabel*      connectionLabel_;
 
-    // Status card frames (for dynamic styling)
+    // Status cards
     QFrame* protectionCard_;
     QFrame* lastScanCard_;
     QFrame* threatsCard_;
     QFrame* healthCard_;
 
-    QTimer* refreshTimer_;
+    QLabel* protectionStatusLabel_;
+    QLabel* lastScanLabel_;
+    QLabel* threatsLabel_;
+    QLabel* healthLabel_;
+    QLabel* healthIndicator_;
 
-    // Backend connection indicator (Phase 4)
-    QFrame* connectionIndicator_;
-    QLabel* connectionLabel_;
+    // Monitor row dots + status labels
+    QLabel* procDot_;
+    QLabel* procStatus_;
+    QLabel* fileDot_;
+    QLabel* fileStatus_;
+    QLabel* netDot_;
+    QLabel* netStatus_;
+    QLabel* regDot_;
+    QLabel* regStatus_;
+
+    // Incident summary
+    QFrame* incidentCard_;
+    QLabel* activeIncidentsLabel_;
+    QLabel* totalIncidentsLabel_;
+
+    QTimer* refreshTimer_;
 };

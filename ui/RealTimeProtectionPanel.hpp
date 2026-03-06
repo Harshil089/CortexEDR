@@ -23,17 +23,22 @@ private slots:
 private:
     void setupUI();
     void updateUI(bool active);
-    QFrame* createMonitorRow(const QString& icon, const QString& name, QLabel*& statusLabel);
+    QFrame* createMonitorRow(const QString& name, const QString& method,
+                             QLabel*& dot, QLabel*& statusLabel);
 
     EDRBridge* bridge_;
 
     QPushButton* toggleBtn_;
-    QLabel* statusLabel_;
-    QLabel* statusDescLabel_;
+    QLabel*      statusLabel_;
+    QLabel*      statusDescLabel_;
 
-    // Monitor status labels
+    // Monitor dot + status label pairs
+    QLabel* procDot_;
     QLabel* processMonitorStatus_;
+    QLabel* regDot_;
     QLabel* registryMonitorStatus_;
+    QLabel* fileDot_;
     QLabel* fileSystemStatus_;
+    QLabel* netDot_;
     QLabel* networkMonitorStatus_;
 };

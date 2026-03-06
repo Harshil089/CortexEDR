@@ -1,0 +1,25 @@
+CompileFlags:
+  Add:
+    - -IC:/Qt/6.10.2/msvc2022_64/include
+    - -IC:/Qt/6.10.2/msvc2022_64/include/QtCore
+    - -IC:/Qt/6.10.2/msvc2022_64/include/QtGui
+    - -IC:/Qt/6.10.2/msvc2022_64/include/QtWidgets
+    - -DQT_CORE_LIB
+    - -DQT_GUI_LIB
+    - -DQT_WIDGETS_LIB
+    # Suppress MOC macro noise that clangd can't expand
+    - -DQ_OBJECT=
+    - -DQ_SIGNALS=public
+    - -DQ_SLOTS=
+    - -DQ_EMIT=
+    - -Dslots=
+    - -Dsignals=public
+    - -Demit=
+    - --target=x86_64-pc-windows-msvc
+    - -std=c++20
+  Remove:
+    - -W*
+    - /W*
+    - /WX
+Diagnostics:
+  UnusedIncludes: None

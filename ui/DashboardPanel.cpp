@@ -1,6 +1,6 @@
 #include "DashboardPanel.hpp"
 #include "EDRBridge.hpp"
-#include <QPainter>
+#include <QStyle>
 
 DashboardPanel::DashboardPanel(EDRBridge* bridge, QWidget* parent)
     : QWidget(parent), bridge_(bridge)
@@ -14,216 +14,296 @@ DashboardPanel::DashboardPanel(EDRBridge* bridge, QWidget* parent)
     refreshStatus();
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+static QFrame* makeDivider()
+{
+    QFrame* line = new QFrame();
+    line->setObjectName("HRule");
+    line->setFrameShape(QFrame::HLine);
+    line->setFixedHeight(1);
+    return line;
+}
+
+static QLabel* makeLabel(const QString& text, const QString& objectName,
+                         int ptSize = 0, int weight = QFont::Normal)
+{
+    QLabel* l = new QLabel(text);
+    l->setObjectName(objectName);
+    if (ptSize > 0 || weight != QFont::Normal) {
+        QFont f("Segoe UI", ptSize > 0 ? ptSize : -1, weight);
+        l->setFont(f);
+    }
+    return l;
+}
+
+// ─── UI Setup ────────────────────────────────────────────────────────────────
+
 void DashboardPanel::setupUI()
 {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(24);
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(28, 24, 28, 24);
+    root->setSpacing(20);
 
-    // Title
-    QLabel* title = new QLabel("Dashboard");
-    title->setProperty("class", "title");
-    QFont titleFont("Segoe UI", 24, QFont::Bold);
-    title->setFont(titleFont);
+    // ── Page header ──────────────────────────────────────────────────────────
+    QHBoxLayout* headerRow = new QHBoxLayout();
+    headerRow->setSpacing(0);
 
-    QLabel* subtitle = new QLabel("Overview of your system protection status");
-    subtitle->setProperty("class", "subtitle");
-    QFont subFont("Segoe UI", 12);
-    subtitle->setFont(subFont);
+    QVBoxLayout* titleCol = new QVBoxLayout();
+    titleCol->setSpacing(2);
 
-    // Backend connection indicator (Phase 4)
-    QHBoxLayout* connRow = new QHBoxLayout();
-    connectionIndicator_ = new QFrame();
-    connectionIndicator_->setFixedSize(10, 10);
-    connectionIndicator_->setStyleSheet("background-color: #F44336; border-radius: 5px;");
-    connectionLabel_ = new QLabel("Engine: Disconnected");
-    connectionLabel_->setFont(subFont);
-    connectionLabel_->setStyleSheet("color: #8B949E;");
-    connRow->addWidget(connectionIndicator_);
-    connRow->addWidget(connectionLabel_);
-    connRow->addStretch();
+    QLabel* pageTitle = makeLabel("Dashboard", "PageTitle", 20, QFont::DemiBold);
+    QLabel* pageSub   = makeLabel("System protection overview", "PageSubtitle");
+    titleCol->addWidget(pageTitle);
+    titleCol->addWidget(pageSub);
 
-    layout->addWidget(title);
-    layout->addWidget(subtitle);
-    layout->addLayout(connRow);
-    layout->addSpacing(8);
-
-    // Status cards grid
-    QGridLayout* cardGrid = new QGridLayout();
-    cardGrid->setSpacing(16);
-
-    // Protection Status Card
-    protectionCard_ = new QFrame();
-    protectionCard_->setObjectName("protectionCard");
-    protectionCard_->setStyleSheet(
-        "QFrame#protectionCard { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 20px; }");
-    protectionCard_->setMinimumHeight(140);
-
-    QVBoxLayout* pcLayout = new QVBoxLayout(protectionCard_);
-    pcLayout->setContentsMargins(24, 20, 24, 20);
-
-    QLabel* pcIcon = new QLabel();
-    pcIcon->setStyleSheet("font-size: 32px;");
-    pcIcon->setText("\xF0\x9F\x9B\xA1");
-
-    QLabel* pcTitle = new QLabel("Protection Status");
-    pcTitle->setProperty("class", "cardLabel");
-    QFont cardLabelFont("Segoe UI", 11);
-    pcTitle->setFont(cardLabelFont);
-
-    protectionStatusLabel_ = new QLabel("Inactive");
-    protectionStatusLabel_->setProperty("class", "cardValue");
-    QFont cardValFont("Segoe UI", 22, QFont::Bold);
-    protectionStatusLabel_->setFont(cardValFont);
-
-    pcLayout->addWidget(pcIcon);
-    pcLayout->addWidget(pcTitle);
-    pcLayout->addWidget(protectionStatusLabel_);
-
-    // Last Scan Card
-    lastScanCard_ = new QFrame();
-    lastScanCard_->setObjectName("lastScanCard");
-    lastScanCard_->setStyleSheet(
-        "QFrame#lastScanCard { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 20px; }");
-    lastScanCard_->setMinimumHeight(140);
-
-    QVBoxLayout* lsLayout = new QVBoxLayout(lastScanCard_);
-    lsLayout->setContentsMargins(24, 20, 24, 20);
-
-    QLabel* lsIcon = new QLabel("\xF0\x9F\x95\x90");
-    lsIcon->setStyleSheet("font-size: 32px;");
-
-    QLabel* lsTitle = new QLabel("Last Scan");
-    lsTitle->setProperty("class", "cardLabel");
-    lsTitle->setFont(cardLabelFont);
-
-    lastScanLabel_ = new QLabel("Never");
-    lastScanLabel_->setProperty("class", "cardValue");
-    QFont lastScanFont("Segoe UI", 16, QFont::Bold);
-    lastScanLabel_->setFont(lastScanFont);
-
-    lsLayout->addWidget(lsIcon);
-    lsLayout->addWidget(lsTitle);
-    lsLayout->addWidget(lastScanLabel_);
-
-    // Threats Detected Card
-    threatsCard_ = new QFrame();
-    threatsCard_->setObjectName("threatsCard");
-    threatsCard_->setStyleSheet(
-        "QFrame#threatsCard { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 20px; }");
-    threatsCard_->setMinimumHeight(140);
-
-    QVBoxLayout* tdLayout = new QVBoxLayout(threatsCard_);
-    tdLayout->setContentsMargins(24, 20, 24, 20);
-
-    QLabel* tdIcon = new QLabel("\xE2\x9A\xA0");
-    tdIcon->setStyleSheet("font-size: 32px;");
-
-    QLabel* tdTitle = new QLabel("Threats Detected");
-    tdTitle->setProperty("class", "cardLabel");
-    tdTitle->setFont(cardLabelFont);
-
-    threatsLabel_ = new QLabel("0");
-    threatsLabel_->setProperty("class", "cardValue");
-    threatsLabel_->setFont(cardValFont);
-    threatsLabel_->setStyleSheet("color: #4CAF50;");
-
-    tdLayout->addWidget(tdIcon);
-    tdLayout->addWidget(tdTitle);
-    tdLayout->addWidget(threatsLabel_);
-
-    // System Health Card
-    healthCard_ = new QFrame();
-    healthCard_->setObjectName("healthCard");
-    healthCard_->setStyleSheet(
-        "QFrame#healthCard { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; padding: 20px; }");
-    healthCard_->setMinimumHeight(140);
-
-    QVBoxLayout* shLayout = new QVBoxLayout(healthCard_);
-    shLayout->setContentsMargins(24, 20, 24, 20);
-
-    QLabel* shIcon = new QLabel("\xF0\x9F\x92\x9A");
-    shIcon->setStyleSheet("font-size: 32px;");
-
-    QLabel* shTitle = new QLabel("System Health");
-    shTitle->setProperty("class", "cardLabel");
-    shTitle->setFont(cardLabelFont);
-
-    healthLabel_ = new QLabel("Unknown");
-    healthLabel_->setProperty("class", "cardValue");
-    QFont healthFont("Segoe UI", 18, QFont::Bold);
-    healthLabel_->setFont(healthFont);
-
-    healthIndicator_ = new QFrame();
-    healthIndicator_->setFixedSize(12, 12);
-    healthIndicator_->setStyleSheet("background-color: #8B949E; border-radius: 6px;");
-
-    QHBoxLayout* healthRow = new QHBoxLayout();
-    healthRow->addWidget(healthIndicator_);
-    healthRow->addWidget(healthLabel_);
-    healthRow->addStretch();
-
-    shLayout->addWidget(shIcon);
-    shLayout->addWidget(shTitle);
-    shLayout->addLayout(healthRow);
-
-    cardGrid->addWidget(protectionCard_, 0, 0);
-    cardGrid->addWidget(lastScanCard_, 0, 1);
-    cardGrid->addWidget(threatsCard_, 1, 0);
-    cardGrid->addWidget(healthCard_, 1, 1);
-
-    layout->addLayout(cardGrid);
-
-    // Quick Scan Button
-    QHBoxLayout* actionLayout = new QHBoxLayout();
-
-    quickScanBtn_ = new QPushButton("  Run Quick Scan  ");
-    quickScanBtn_->setProperty("class", "primary");
-    quickScanBtn_->setMinimumHeight(50);
+    quickScanBtn_ = new QPushButton("Run Quick Scan");
+    quickScanBtn_->setObjectName("PrimaryBtn");
+    quickScanBtn_->setFixedHeight(34);
     quickScanBtn_->setCursor(Qt::PointingHandCursor);
-    QFont btnFont("Segoe UI", 14, QFont::Bold);
-    quickScanBtn_->setFont(btnFont);
-    quickScanBtn_->setMinimumWidth(280);
-
     connect(quickScanBtn_, &QPushButton::clicked, this, [this]() {
         emit quickScanRequested();
     });
 
-    actionLayout->addStretch();
-    actionLayout->addWidget(quickScanBtn_);
-    actionLayout->addStretch();
+    // Backend indicator (right of header)
+    connectionIndicator_ = new QLabel();
+    connectionIndicator_->setObjectName("DotRed");
+    connectionLabel_ = new QLabel("Backend: Offline");
+    connectionLabel_->setObjectName("SidebarFooterLabel");
+    connectionLabel_->setStyleSheet("color: #f87171; font-size: 11px;");
 
-    layout->addSpacing(8);
-    layout->addLayout(actionLayout);
-    layout->addStretch();
+    QHBoxLayout* connChip = new QHBoxLayout();
+    connChip->setSpacing(6);
+    connChip->addWidget(connectionIndicator_);
+    connChip->addWidget(connectionLabel_);
+
+    headerRow->addLayout(titleCol);
+    headerRow->addStretch();
+    headerRow->addLayout(connChip);
+    headerRow->addSpacing(16);
+    headerRow->addWidget(quickScanBtn_);
+
+    root->addLayout(headerRow);
+
+    // ── Status cards (2 × 2 grid) ────────────────────────────────────────────
+    QGridLayout* grid = new QGridLayout();
+    grid->setSpacing(14);
+    grid->setColumnStretch(0, 1);
+    grid->setColumnStretch(1, 1);
+
+    // Card: Protection Status
+    protectionCard_ = new QFrame();
+    protectionCard_->setObjectName("Card");
+    {
+        QVBoxLayout* cl = new QVBoxLayout(protectionCard_);
+        cl->setContentsMargins(20, 18, 20, 18);
+        cl->setSpacing(6);
+
+        QLabel* lbl = makeLabel("PROTECTION STATUS", "CardMetricLabel");
+        protectionStatusLabel_ = new QLabel("Inactive");
+        protectionStatusLabel_->setObjectName("CardMetricValueRed");
+        QFont vf("Segoe UI", 22, QFont::Bold);
+        protectionStatusLabel_->setFont(vf);
+
+        cl->addWidget(lbl);
+        cl->addWidget(protectionStatusLabel_);
+        cl->addStretch();
+    }
+    protectionCard_->setMinimumHeight(110);
+
+    // Card: Last Scan
+    lastScanCard_ = new QFrame();
+    lastScanCard_->setObjectName("Card");
+    {
+        QVBoxLayout* cl = new QVBoxLayout(lastScanCard_);
+        cl->setContentsMargins(20, 18, 20, 18);
+        cl->setSpacing(6);
+
+        QLabel* lbl = makeLabel("LAST SCAN", "CardMetricLabel");
+        lastScanLabel_ = new QLabel("Never");
+        lastScanLabel_->setObjectName("CardMetricValue");
+        QFont vf("Segoe UI", 16, QFont::Bold);
+        lastScanLabel_->setFont(vf);
+        lastScanLabel_->setWordWrap(true);
+
+        cl->addWidget(lbl);
+        cl->addWidget(lastScanLabel_);
+        cl->addStretch();
+    }
+    lastScanCard_->setMinimumHeight(110);
+
+    // Card: Threats Detected
+    threatsCard_ = new QFrame();
+    threatsCard_->setObjectName("Card");
+    {
+        QVBoxLayout* cl = new QVBoxLayout(threatsCard_);
+        cl->setContentsMargins(20, 18, 20, 18);
+        cl->setSpacing(6);
+
+        QLabel* lbl = makeLabel("THREATS DETECTED", "CardMetricLabel");
+        threatsLabel_ = new QLabel("0");
+        threatsLabel_->setObjectName("CardMetricValueGreen");
+        QFont vf("Segoe UI", 28, QFont::Bold);
+        threatsLabel_->setFont(vf);
+
+        cl->addWidget(lbl);
+        cl->addWidget(threatsLabel_);
+        cl->addStretch();
+    }
+    threatsCard_->setMinimumHeight(110);
+
+    // Card: System Health
+    healthCard_ = new QFrame();
+    healthCard_->setObjectName("Card");
+    {
+        QVBoxLayout* cl = new QVBoxLayout(healthCard_);
+        cl->setContentsMargins(20, 18, 20, 18);
+        cl->setSpacing(6);
+
+        QLabel* lbl = makeLabel("SYSTEM HEALTH", "CardMetricLabel");
+
+        QHBoxLayout* healthRow = new QHBoxLayout();
+        healthRow->setSpacing(8);
+        healthIndicator_ = new QLabel();
+        healthIndicator_->setObjectName("DotGray");
+        healthLabel_ = new QLabel("Unknown");
+        healthLabel_->setObjectName("CardMetricValue");
+        QFont vf("Segoe UI", 18, QFont::Bold);
+        healthLabel_->setFont(vf);
+        healthRow->addWidget(healthIndicator_);
+        healthRow->addWidget(healthLabel_);
+        healthRow->addStretch();
+
+        cl->addWidget(lbl);
+        cl->addLayout(healthRow);
+        cl->addStretch();
+    }
+    healthCard_->setMinimumHeight(110);
+
+    grid->addWidget(protectionCard_, 0, 0);
+    grid->addWidget(lastScanCard_,   0, 1);
+    grid->addWidget(threatsCard_,    1, 0);
+    grid->addWidget(healthCard_,     1, 1);
+
+    root->addLayout(grid);
+
+    // ── Monitor status ────────────────────────────────────────────────────────
+    QLabel* monitorSectionTitle = makeLabel("MONITOR STATUS", "SectionTitle");
+    root->addSpacing(4);
+    root->addWidget(monitorSectionTitle);
+
+    QFrame* monitorCard = new QFrame();
+    monitorCard->setObjectName("Card");
+    {
+        QVBoxLayout* ml = new QVBoxLayout(monitorCard);
+        ml->setContentsMargins(0, 0, 0, 0);
+        ml->setSpacing(0);
+
+        struct MonRow { const char* name; const char* method; QLabel** dot; QLabel** lbl; };
+        MonRow rows[] = {
+            { "Process Monitor",  "ETW Kernel Provider",         &procDot_,   &procStatus_    },
+            { "File System",      "ReadDirectoryChangesW",        &fileDot_,   &fileStatus_    },
+            { "Network Monitor",  "IP Helper API (TCP/UDP)",      &netDot_,    &netStatus_     },
+            { "Registry Monitor", "RegNotifyChangeKeyValue",      &regDot_,    &regStatus_     },
+        };
+
+        for (int i = 0; i < 4; ++i) {
+            if (i > 0) ml->addWidget(makeDivider());
+
+            QFrame* row = new QFrame();
+            QHBoxLayout* rl = new QHBoxLayout(row);
+            rl->setContentsMargins(20, 12, 20, 12);
+            rl->setSpacing(10);
+
+            QLabel* dot = new QLabel();
+            dot->setObjectName("DotGray");
+            *rows[i].dot = dot;
+
+            QLabel* name = makeLabel(rows[i].name, "", 13);
+            name->setStyleSheet("color: rgba(255,255,255,0.85);");
+
+            QLabel* method = makeLabel(rows[i].method, "");
+            method->setStyleSheet("color: rgba(255,255,255,0.25); font-size: 11px;");
+
+            QLabel* status = new QLabel("Inactive");
+            status->setStyleSheet("color: rgba(255,255,255,0.25); font-size: 12px;");
+            status->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+            *rows[i].lbl = status;
+
+            rl->addWidget(dot);
+            rl->addWidget(name);
+            rl->addSpacing(8);
+            rl->addWidget(method, 1);
+            rl->addWidget(status);
+            ml->addWidget(row);
+        }
+    }
+    root->addWidget(monitorCard);
+
+    // ── Incident summary ──────────────────────────────────────────────────────
+    QLabel* incidentSectionTitle = makeLabel("INCIDENT SUMMARY", "SectionTitle");
+    root->addSpacing(4);
+    root->addWidget(incidentSectionTitle);
+
+    incidentCard_ = new QFrame();
+    incidentCard_->setObjectName("Card");
+    {
+        QHBoxLayout* il = new QHBoxLayout(incidentCard_);
+        il->setContentsMargins(20, 14, 20, 14);
+        il->setSpacing(24);
+
+        activeIncidentsLabel_  = makeLabel("Active: 0",   "", 13, QFont::DemiBold);
+        totalIncidentsLabel_   = makeLabel("Total: 0",    "", 13);
+        totalIncidentsLabel_->setStyleSheet("color: rgba(255,255,255,0.35);");
+
+        il->addWidget(activeIncidentsLabel_);
+        il->addWidget(makeDivider());  // reuse — will be vertical-ish via stretch
+        il->addWidget(totalIncidentsLabel_);
+        il->addStretch();
+    }
+
+    root->addWidget(incidentCard_);
+    root->addStretch();
 }
+
+// ─── Refresh ─────────────────────────────────────────────────────────────────
 
 void DashboardPanel::refreshStatus()
 {
-    // Backend connection status (Phase 4)
+    // Backend connection
     bool connected = bridge_->isBackendConnected();
-    connectionIndicator_->setStyleSheet(
-        connected
-        ? "background-color: #4CAF50; border-radius: 5px;"
-        : "background-color: #F44336; border-radius: 5px;"
-    );
-    connectionLabel_->setText(connected ? "Engine: Connected" : "Engine: Disconnected");
-    connectionLabel_->setStyleSheet(connected ? "color: #4CAF50;" : "color: #8B949E;");
+    connectionIndicator_->setObjectName(connected ? "DotGreen" : "DotRed");
+    connectionIndicator_->style()->unpolish(connectionIndicator_);
+    connectionIndicator_->style()->polish(connectionIndicator_);
+    connectionLabel_->setText(connected ? "Backend: Connected" : "Backend: Offline");
+    connectionLabel_->setStyleSheet(connected
+        ? "color: #4ade80; font-size: 11px;"
+        : "color: #f87171; font-size: 11px;");
 
-    // Protection status
+    // Protection
     bool active = bridge_->isProtectionActive();
     protectionStatusLabel_->setText(active ? "Active" : "Inactive");
-    protectionStatusLabel_->setStyleSheet(active ? "color: #4CAF50;" : "color: #F44336;");
-    protectionCard_->setStyleSheet(
-        active
-        ? "QFrame#protectionCard { background-color: #161B22; border: 1px solid #4CAF50; border-radius: 12px; }"
-        : "QFrame#protectionCard { background-color: #161B22; border: 1px solid #F44336; border-radius: 12px; }"
-    );
+    protectionStatusLabel_->setObjectName(active ? "CardMetricValueGreen" : "CardMetricValueRed");
+    protectionStatusLabel_->style()->unpolish(protectionStatusLabel_);
+    protectionStatusLabel_->style()->polish(protectionStatusLabel_);
+
+    // Change card left-border accent
+    protectionCard_->setObjectName(active ? "CardProtected" : "CardDanger");
+    protectionCard_->style()->unpolish(protectionCard_);
+    protectionCard_->style()->polish(protectionCard_);
 
     // Last scan
     QDateTime lastScan = bridge_->lastScanTime();
     if (lastScan.isValid()) {
-        lastScanLabel_->setText(lastScan.toString("MMM d, hh:mm"));
+        qint64 secsAgo = lastScan.secsTo(QDateTime::currentDateTime());
+        QString ago;
+        if (secsAgo < 3600)
+            ago = QString("%1 min ago").arg(secsAgo / 60);
+        else if (secsAgo < 86400)
+            ago = QString("%1 hr ago").arg(secsAgo / 3600);
+        else
+            ago = lastScan.toString("yyyy-MM-dd");
+        lastScanLabel_->setText(ago);
     } else {
         lastScanLabel_->setText("Never");
     }
@@ -231,29 +311,53 @@ void DashboardPanel::refreshStatus()
     // Threats
     int threats = bridge_->totalThreats();
     threatsLabel_->setText(QString::number(threats));
-    if (threats > 0) {
-        threatsLabel_->setStyleSheet("color: #F44336;");
-        threatsCard_->setStyleSheet(
-            "QFrame#threatsCard { background-color: #161B22; border: 1px solid #F44336; border-radius: 12px; }");
-    } else {
-        threatsLabel_->setStyleSheet("color: #4CAF50;");
-        threatsCard_->setStyleSheet(
-            "QFrame#threatsCard { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; }");
-    }
+    threatsLabel_->setObjectName(threats > 0 ? "CardMetricValueRed" : "CardMetricValueGreen");
+    threatsLabel_->style()->unpolish(threatsLabel_);
+    threatsLabel_->style()->polish(threatsLabel_);
+    threatsCard_->setObjectName(threats > 0 ? "CardDanger" : "Card");
+    threatsCard_->style()->unpolish(threatsCard_);
+    threatsCard_->style()->polish(threatsCard_);
 
-    // System health
+    // Health
     QString health = bridge_->systemHealthStatus();
     if (health == "Green") {
         healthLabel_->setText("Healthy");
-        healthLabel_->setStyleSheet("color: #4CAF50;");
-        healthIndicator_->setStyleSheet("background-color: #4CAF50; border-radius: 6px;");
+        healthLabel_->setStyleSheet("color: #4ade80; font-size: 18px; font-weight: 700;");
+        healthIndicator_->setObjectName("DotGreen");
     } else if (health == "Yellow") {
         healthLabel_->setText("At Risk");
-        healthLabel_->setStyleSheet("color: #FF9800;");
-        healthIndicator_->setStyleSheet("background-color: #FF9800; border-radius: 6px;");
+        healthLabel_->setStyleSheet("color: #fbbf24; font-size: 18px; font-weight: 700;");
+        healthIndicator_->setObjectName("DotAmber");
     } else {
         healthLabel_->setText("Unprotected");
-        healthLabel_->setStyleSheet("color: #F44336;");
-        healthIndicator_->setStyleSheet("background-color: #F44336; border-radius: 6px;");
+        healthLabel_->setStyleSheet("color: #f87171; font-size: 18px; font-weight: 700;");
+        healthIndicator_->setObjectName("DotRed");
     }
+    healthIndicator_->style()->unpolish(healthIndicator_);
+    healthIndicator_->style()->polish(healthIndicator_);
+
+    // Monitor rows
+    auto setMonitor = [](QLabel* dot, QLabel* lbl, bool on) {
+        dot->setObjectName(on ? "DotGreen" : "DotGray");
+        dot->style()->unpolish(dot);
+        dot->style()->polish(dot);
+        lbl->setText(on ? "Active" : "Inactive");
+        lbl->setStyleSheet(on
+            ? "color: #4ade80; font-size: 12px; font-weight: 600;"
+            : "color: rgba(255,255,255,0.25); font-size: 12px;");
+    };
+
+    setMonitor(procDot_, procStatus_,   bridge_->isProcessMonitorActive());
+    setMonitor(fileDot_, fileStatus_,   bridge_->isFileSystemHookActive());
+    setMonitor(netDot_,  netStatus_,    bridge_->isNetworkMonitorActive());
+    setMonitor(regDot_,  regStatus_,    bridge_->isRegistryMonitorActive());
+
+    // Incidents
+    int activeInc = bridge_->activeIncidentCount();
+    int totalInc  = bridge_->totalIncidentCount();
+    activeIncidentsLabel_->setText(QString("Active: %1").arg(activeInc));
+    activeIncidentsLabel_->setStyleSheet(activeInc > 0
+        ? "color: #fbbf24; font-size: 13px; font-weight: 600;"
+        : "color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 600;");
+    totalIncidentsLabel_->setText(QString("Total: %1").arg(totalInc));
 }

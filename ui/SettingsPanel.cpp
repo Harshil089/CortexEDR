@@ -1,257 +1,256 @@
 #include "SettingsPanel.hpp"
 #include "EDRBridge.hpp"
+#include <QScrollArea>
+#include <QHBoxLayout>
 
-SettingsPanel::SettingsPanel(EDRBridge *bridge, QWidget *parent)
-    : QWidget(parent), bridge_(bridge) {
-  setupUI();
+SettingsPanel::SettingsPanel(EDRBridge* bridge, QWidget* parent)
+    : QWidget(parent), bridge_(bridge)
+{
+    setupUI();
 }
 
-void SettingsPanel::setupUI() {
-  QVBoxLayout *layout = new QVBoxLayout(this);
-  layout->setContentsMargins(32, 28, 32, 28);
-  layout->setSpacing(20);
+void SettingsPanel::setupUI()
+{
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(28, 24, 28, 24);
+    root->setSpacing(14);
 
-  // Title
-  QLabel *title = new QLabel("Settings");
-  title->setProperty("class", "title");
-  QFont titleFont("Segoe UI", 24, QFont::Bold);
-  title->setFont(titleFont);
+    // ── Page header ──────────────────────────────────────────────────────────
+    QLabel* pageTitle = new QLabel("Settings");
+    pageTitle->setObjectName("PageTitle");
+    QFont tf("Segoe UI", 20, QFont::DemiBold);
+    pageTitle->setFont(tf);
 
-  QLabel *desc =
-      new QLabel("Configure scan behavior, exclusions, and threat definitions");
-  desc->setProperty("class", "subtitle");
-  desc->setWordWrap(true);
+    QLabel* pageSub = new QLabel("Scan behavior, exclusions, and threat definitions");
+    pageSub->setObjectName("PageSubtitle");
 
-  layout->addWidget(title);
-  layout->addWidget(desc);
-  layout->addSpacing(8);
+    root->addWidget(pageTitle);
+    root->addWidget(pageSub);
+    root->addSpacing(4);
 
-  // Scroll area for settings content
-  QWidget *scrollContent = new QWidget();
-  QVBoxLayout *contentLayout = new QVBoxLayout(scrollContent);
-  contentLayout->setContentsMargins(0, 0, 0, 0);
-  contentLayout->setSpacing(16);
+    // ── Scrollable content ────────────────────────────────────────────────────
+    QScrollArea* scroll = new QScrollArea();
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
 
-  // ─── Scan Sensitivity ─────────────────────
-  QFrame *sensitivitySection = createSection("Scan Sensitivity");
-  QVBoxLayout *sensLayout =
-      qobject_cast<QVBoxLayout *>(sensitivitySection->layout());
+    QWidget* content = new QWidget();
+    QVBoxLayout* contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(0, 0, 8, 0);
+    contentLayout->setSpacing(14);
 
-  QHBoxLayout *sliderRow = new QHBoxLayout();
-  QLabel *lowLabel = new QLabel("Low");
-  lowLabel->setProperty("class", "dimText");
-  QLabel *highLabel = new QLabel("High");
-  highLabel->setProperty("class", "dimText");
+    // ── Section: Scan Sensitivity ─────────────────────────────────────────────
+    {
+        QFrame* sec = createSection("SCAN BEHAVIOR");
+        QVBoxLayout* sl = qobject_cast<QVBoxLayout*>(sec->layout());
 
-  sensitivitySlider_ = new QSlider(Qt::Horizontal);
-  sensitivitySlider_->setMinimum(0);
-  sensitivitySlider_->setMaximum(100);
-  sensitivitySlider_->setValue(bridge_->scanSensitivity());
-  sensitivitySlider_->setMinimumHeight(24);
+        // Slider row
+        QHBoxLayout* sliderRow = new QHBoxLayout();
+        QLabel* lowLabel = new QLabel("Low");
+        lowLabel->setStyleSheet("color: rgba(255,255,255,0.30); font-size: 11px;");
 
-  sliderRow->addWidget(lowLabel);
-  sliderRow->addWidget(sensitivitySlider_, 1);
-  sliderRow->addWidget(highLabel);
+        sensitivitySlider_ = new QSlider(Qt::Horizontal);
+        sensitivitySlider_->setRange(0, 100);
+        sensitivitySlider_->setValue(bridge_->scanSensitivity());
 
-  sensitivityLabel_ =
-      new QLabel(QString("Current: %1%").arg(bridge_->scanSensitivity()));
-  sensitivityLabel_->setStyleSheet(
-      "color: #00BCD4; font-size: 13px; font-weight: bold;");
+        QLabel* highLabel = new QLabel("High");
+        highLabel->setStyleSheet("color: rgba(255,255,255,0.30); font-size: 11px;");
 
-  QLabel *sensDesc = new QLabel("Higher sensitivity detects more threats but "
-                                "may increase false positives");
-  sensDesc->setProperty("class", "dimText");
-  sensDesc->setWordWrap(true);
+        sliderRow->addWidget(lowLabel);
+        sliderRow->addWidget(sensitivitySlider_, 1);
+        sliderRow->addWidget(highLabel);
 
-  connect(sensitivitySlider_, &QSlider::valueChanged, this,
-          &SettingsPanel::onSensitivityChanged);
+        sensitivityLabel_ = new QLabel(
+            QString("Detection Sensitivity: %1%").arg(bridge_->scanSensitivity()));
+        sensitivityLabel_->setStyleSheet("color: #4ade80; font-size: 12px; font-weight: 600;");
 
-  sensLayout->addLayout(sliderRow);
-  sensLayout->addWidget(sensitivityLabel_);
-  sensLayout->addWidget(sensDesc);
+        QLabel* sensDesc = new QLabel(
+            "Higher sensitivity detects more threats but may increase false positives.");
+        sensDesc->setStyleSheet("color: rgba(255,255,255,0.25); font-size: 11px;");
+        sensDesc->setWordWrap(true);
 
-  contentLayout->addWidget(sensitivitySection);
+        connect(sensitivitySlider_, &QSlider::valueChanged,
+                this, &SettingsPanel::onSensitivityChanged);
 
-  // ─── Scan Options ─────────────────────────
-  QFrame *optionsSection = createSection("Scan Options");
-  QVBoxLayout *optLayout =
-      qobject_cast<QVBoxLayout *>(optionsSection->layout());
+        sl->addLayout(sliderRow);
+        sl->addWidget(sensitivityLabel_);
+        sl->addWidget(sensDesc);
 
-  autoScanCheck_ = new QCheckBox("Auto-scan on system startup");
-  autoScanCheck_->setChecked(bridge_->autoScanOnStartup());
-  autoScanCheck_->setMinimumHeight(32);
+        // Checkboxes
+        QFrame* divider = new QFrame();
+        divider->setObjectName("HRule");
+        divider->setFrameShape(QFrame::HLine);
+        divider->setFixedHeight(1);
+        sl->addWidget(divider);
 
-  heuristicCheck_ =
-      new QCheckBox("Enable heuristic scanning (behavioral analysis)");
-  heuristicCheck_->setChecked(bridge_->heuristicScanEnabled());
-  heuristicCheck_->setMinimumHeight(32);
+        heuristicCheck_ = new QCheckBox("Enable heuristic analysis (behavioral detection)");
+        heuristicCheck_->setChecked(bridge_->heuristicScanEnabled());
+        connect(heuristicCheck_, &QCheckBox::checkStateChanged,
+                this, &SettingsPanel::onHeuristicChanged);
 
-  connect(autoScanCheck_, &QCheckBox::checkStateChanged, this,
-          &SettingsPanel::onAutoScanChanged);
-  connect(heuristicCheck_, &QCheckBox::checkStateChanged, this,
-          &SettingsPanel::onHeuristicChanged);
+        autoScanCheck_ = new QCheckBox("Scan on system startup");
+        autoScanCheck_->setChecked(bridge_->autoScanOnStartup());
+        connect(autoScanCheck_, &QCheckBox::checkStateChanged,
+                this, &SettingsPanel::onAutoScanChanged);
 
-  optLayout->addWidget(autoScanCheck_);
-  optLayout->addWidget(heuristicCheck_);
+        sl->addWidget(heuristicCheck_);
+        sl->addWidget(autoScanCheck_);
 
-  contentLayout->addWidget(optionsSection);
-
-  // ─── Exclusion Folders ────────────────────
-  QFrame *exclusionSection = createSection("Exclusion Folders");
-  QVBoxLayout *exclLayout =
-      qobject_cast<QVBoxLayout *>(exclusionSection->layout());
-
-  QLabel *exclDesc =
-      new QLabel("Files in these folders will be skipped during scans");
-  exclDesc->setProperty("class", "dimText");
-  exclDesc->setWordWrap(true);
-  exclLayout->addWidget(exclDesc);
-
-  exclusionList_ = new QListWidget();
-  exclusionList_->setMinimumHeight(120);
-  exclusionList_->setMaximumHeight(180);
-
-  // Populate from bridge
-  for (const auto &folder : bridge_->exclusionFolders()) {
-    exclusionList_->addItem(folder);
-  }
-
-  QHBoxLayout *exclBtnRow = new QHBoxLayout();
-
-  QFont btnFont("Segoe UI", 11, QFont::DemiBold);
-
-  addExclusionBtn_ = new QPushButton("  Add Folder");
-  addExclusionBtn_->setMinimumHeight(36);
-  addExclusionBtn_->setCursor(Qt::PointingHandCursor);
-  addExclusionBtn_->setFont(btnFont);
-
-  removeExclusionBtn_ = new QPushButton("  Remove Selected");
-  removeExclusionBtn_->setProperty("class", "danger");
-  removeExclusionBtn_->setMinimumHeight(36);
-  removeExclusionBtn_->setCursor(Qt::PointingHandCursor);
-  removeExclusionBtn_->setFont(btnFont);
-  removeExclusionBtn_->setEnabled(false);
-
-  connect(addExclusionBtn_, &QPushButton::clicked, this,
-          &SettingsPanel::onAddExclusion);
-  connect(removeExclusionBtn_, &QPushButton::clicked, this,
-          &SettingsPanel::onRemoveExclusion);
-  connect(exclusionList_, &QListWidget::itemSelectionChanged, this, [this]() {
-    removeExclusionBtn_->setEnabled(!exclusionList_->selectedItems().isEmpty());
-  });
-
-  exclBtnRow->addWidget(addExclusionBtn_);
-  exclBtnRow->addWidget(removeExclusionBtn_);
-  exclBtnRow->addStretch();
-
-  exclLayout->addWidget(exclusionList_);
-  exclLayout->addLayout(exclBtnRow);
-
-  contentLayout->addWidget(exclusionSection);
-
-  // ─── Threat Definitions ───────────────────
-  QFrame *defsSection = createSection("Threat Definitions");
-  QVBoxLayout *defsLayout = qobject_cast<QVBoxLayout *>(defsSection->layout());
-
-  QHBoxLayout *defsRow = new QHBoxLayout();
-
-  updateDefsBtn_ = new QPushButton("  Update Definitions");
-  updateDefsBtn_->setProperty("class", "primary");
-  updateDefsBtn_->setMinimumHeight(40);
-  updateDefsBtn_->setCursor(Qt::PointingHandCursor);
-  QFont defsBtnFont("Segoe UI", 12, QFont::DemiBold);
-  updateDefsBtn_->setFont(defsBtnFont);
-
-  defsStatusLabel_ = new QLabel("Definitions are up to date");
-  defsStatusLabel_->setStyleSheet("color: #4CAF50; font-size: 12px;");
-
-  connect(updateDefsBtn_, &QPushButton::clicked, this,
-          &SettingsPanel::onUpdateDefinitions);
-  connect(bridge_, &EDRBridge::definitionsUpdated, this, [this](bool success) {
-    if (success) {
-      defsStatusLabel_->setText("Definitions updated successfully");
-      defsStatusLabel_->setStyleSheet("color: #4CAF50; font-size: 12px;");
-    } else {
-      defsStatusLabel_->setText("Update failed. Please try again.");
-      defsStatusLabel_->setStyleSheet("color: #F44336; font-size: 12px;");
+        contentLayout->addWidget(sec);
     }
-    updateDefsBtn_->setEnabled(true);
-    updateDefsBtn_->setText("  Update Definitions");
-  });
 
-  defsRow->addWidget(updateDefsBtn_);
-  defsRow->addWidget(defsStatusLabel_);
-  defsRow->addStretch();
+    // ── Section: Exclusions ───────────────────────────────────────────────────
+    {
+        QFrame* sec = createSection("EXCLUSION FOLDERS");
+        QVBoxLayout* sl = qobject_cast<QVBoxLayout*>(sec->layout());
 
-  defsLayout->addLayout(defsRow);
+        QLabel* desc = new QLabel(
+            "Files in these folders are skipped during all scans.");
+        desc->setStyleSheet("color: rgba(255,255,255,0.25); font-size: 11px;");
+        desc->setWordWrap(true);
+        sl->addWidget(desc);
 
-  contentLayout->addWidget(defsSection);
-  contentLayout->addStretch();
+        exclusionList_ = new QListWidget();
+        exclusionList_->setMaximumHeight(150);
+        for (const auto& folder : bridge_->exclusionFolders())
+            exclusionList_->addItem(folder);
+        sl->addWidget(exclusionList_);
 
-  layout->addWidget(scrollContent, 1);
+        QHBoxLayout* exBtns = new QHBoxLayout();
+        addExclusionBtn_ = new QPushButton("Add Folder");
+        addExclusionBtn_->setObjectName("GhostBtn");
+        addExclusionBtn_->setFixedHeight(30);
+        addExclusionBtn_->setCursor(Qt::PointingHandCursor);
+
+        removeExclusionBtn_ = new QPushButton("Remove Selected");
+        removeExclusionBtn_->setObjectName("DestructiveBtn");
+        removeExclusionBtn_->setFixedHeight(30);
+        removeExclusionBtn_->setCursor(Qt::PointingHandCursor);
+        removeExclusionBtn_->setEnabled(false);
+
+        connect(addExclusionBtn_,    &QPushButton::clicked, this, &SettingsPanel::onAddExclusion);
+        connect(removeExclusionBtn_, &QPushButton::clicked, this, &SettingsPanel::onRemoveExclusion);
+        connect(exclusionList_, &QListWidget::itemSelectionChanged, this, [this]() {
+            removeExclusionBtn_->setEnabled(!exclusionList_->selectedItems().isEmpty());
+        });
+
+        exBtns->addWidget(addExclusionBtn_);
+        exBtns->addWidget(removeExclusionBtn_);
+        exBtns->addStretch();
+        sl->addLayout(exBtns);
+
+        contentLayout->addWidget(sec);
+    }
+
+    // ── Section: Threat Definitions ───────────────────────────────────────────
+    {
+        QFrame* sec = createSection("THREAT DEFINITIONS");
+        QVBoxLayout* sl = qobject_cast<QVBoxLayout*>(sec->layout());
+
+        QHBoxLayout* defsRow = new QHBoxLayout();
+        defsRow->setSpacing(14);
+
+        updateDefsBtn_ = new QPushButton("Check for Updates");
+        updateDefsBtn_->setObjectName("PrimaryBtn");
+        updateDefsBtn_->setFixedHeight(34);
+        updateDefsBtn_->setCursor(Qt::PointingHandCursor);
+
+        defsStatusLabel_ = new QLabel("Definitions are up to date");
+        defsStatusLabel_->setStyleSheet("color: #4ade80; font-size: 12px;");
+
+        connect(updateDefsBtn_, &QPushButton::clicked,
+                this, &SettingsPanel::onUpdateDefinitions);
+        connect(bridge_, &EDRBridge::definitionsUpdated, this, [this](bool success) {
+            updateDefsBtn_->setEnabled(true);
+            updateDefsBtn_->setText("Check for Updates");
+            if (success) {
+                defsStatusLabel_->setText("Definitions are up to date");
+                defsStatusLabel_->setStyleSheet("color: #4ade80; font-size: 12px;");
+            } else {
+                defsStatusLabel_->setText("Update failed — check connectivity");
+                defsStatusLabel_->setStyleSheet("color: #f87171; font-size: 12px;");
+            }
+        });
+
+        defsRow->addWidget(updateDefsBtn_);
+        defsRow->addWidget(defsStatusLabel_);
+        defsRow->addStretch();
+        sl->addLayout(defsRow);
+
+        contentLayout->addWidget(sec);
+    }
+
+    contentLayout->addStretch();
+    scroll->setWidget(content);
+    root->addWidget(scroll, 1);
 }
 
-QFrame *SettingsPanel::createSection(const QString &title) {
-  QFrame *section = new QFrame();
-  section->setStyleSheet("QFrame { background-color: #161B22; border: 1px "
-                         "solid #30363D; border-radius: 12px; }");
+QFrame* SettingsPanel::createSection(const QString& title)
+{
+    QFrame* sec = new QFrame();
+    sec->setObjectName("Card");
 
-  QVBoxLayout *sectionLayout = new QVBoxLayout(section);
-  sectionLayout->setContentsMargins(24, 20, 24, 20);
-  sectionLayout->setSpacing(12);
+    QVBoxLayout* l = new QVBoxLayout(sec);
+    l->setContentsMargins(20, 16, 20, 16);
+    l->setSpacing(12);
 
-  QLabel *titleLabel = new QLabel(title);
-  titleLabel->setProperty("class", "sectionTitle");
-  QFont secFont("Segoe UI", 15, QFont::DemiBold);
-  titleLabel->setFont(secFont);
+    QLabel* titleLabel = new QLabel(title);
+    titleLabel->setObjectName("SectionTitle");
+    l->addWidget(titleLabel);
 
-  sectionLayout->addWidget(titleLabel);
-
-  return section;
+    return sec;
 }
 
-void SettingsPanel::onSensitivityChanged(int value) {
-  sensitivityLabel_->setText(QString("Current: %1%").arg(value));
-  bridge_->setScanSensitivity(value);
+// ─── Slots ────────────────────────────────────────────────────────────────────
+
+void SettingsPanel::onSensitivityChanged(int value)
+{
+    sensitivityLabel_->setText(QString("Detection Sensitivity: %1%").arg(value));
+    sensitivityLabel_->setStyleSheet(
+        value >= 71 ? "color: #fbbf24; font-size: 12px; font-weight: 600;" :
+        value <= 30 ? "color: #60a5fa; font-size: 12px; font-weight: 600;" :
+                     "color: #4ade80; font-size: 12px; font-weight: 600;");
+    bridge_->setScanSensitivity(value);
 }
 
-void SettingsPanel::onAutoScanChanged(Qt::CheckState state) {
-  bridge_->setAutoScanOnStartup(state == Qt::Checked);
+void SettingsPanel::onAutoScanChanged(Qt::CheckState state)
+{
+    bridge_->setAutoScanOnStartup(state == Qt::Checked);
 }
 
-void SettingsPanel::onHeuristicChanged(Qt::CheckState state) {
-  bridge_->setHeuristicScanEnabled(state == Qt::Checked);
+void SettingsPanel::onHeuristicChanged(Qt::CheckState state)
+{
+    bridge_->setHeuristicScanEnabled(state == Qt::Checked);
 }
 
-void SettingsPanel::onAddExclusion() {
-  QString dir =
-      QFileDialog::getExistingDirectory(this, "Select Exclusion Folder");
-  if (!dir.isEmpty()) {
-    // Check if already in list
+void SettingsPanel::onAddExclusion()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, "Select Exclusion Folder");
+    if (dir.isEmpty()) return;
+
     for (int i = 0; i < exclusionList_->count(); ++i) {
-      if (exclusionList_->item(i)->text() == dir) {
-        return; // Already exists
-      }
+        if (exclusionList_->item(i)->text() == dir)
+            return;  // already present
     }
     exclusionList_->addItem(dir);
     bridge_->addExclusionFolder(dir);
-  }
 }
 
-void SettingsPanel::onRemoveExclusion() {
-  auto selected = exclusionList_->selectedItems();
-  if (selected.isEmpty())
-    return;
+void SettingsPanel::onRemoveExclusion()
+{
+    auto selected = exclusionList_->selectedItems();
+    if (selected.isEmpty()) return;
 
-  QString path = selected.first()->text();
-  delete exclusionList_->takeItem(exclusionList_->row(selected.first()));
-  bridge_->removeExclusionFolder(path);
+    QString path = selected.first()->text();
+    delete exclusionList_->takeItem(exclusionList_->row(selected.first()));
+    bridge_->removeExclusionFolder(path);
 }
 
-void SettingsPanel::onUpdateDefinitions() {
-  updateDefsBtn_->setEnabled(false);
-  updateDefsBtn_->setText("  Updating...");
-  defsStatusLabel_->setText("Downloading latest definitions...");
-  defsStatusLabel_->setStyleSheet("color: #FF9800; font-size: 12px;");
-  bridge_->updateDefinitions();
+void SettingsPanel::onUpdateDefinitions()
+{
+    updateDefsBtn_->setEnabled(false);
+    updateDefsBtn_->setText("Checking...");
+    defsStatusLabel_->setText("Downloading latest definitions...");
+    defsStatusLabel_->setStyleSheet("color: #fbbf24; font-size: 12px;");
+    bridge_->updateDefinitions();
 }

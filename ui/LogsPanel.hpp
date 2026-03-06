@@ -4,10 +4,13 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QHBoxLayout>
 #include <QTableWidget>
 #include <QComboBox>
 #include <QHeaderView>
+#include <QLineEdit>
 
+struct LogEntry;
 class EDRBridge;
 
 class LogsPanel : public QWidget {
@@ -21,16 +24,19 @@ public slots:
 
 private slots:
     void onFilterChanged(const QString& filter);
+    void onExportCsv();
 
 private:
     void setupUI();
+    void populateTable(const QVector<LogEntry>& entries);
 
     EDRBridge* bridge_;
 
-    QLabel* titleLabel_;
-    QComboBox* filterCombo_;
+    QComboBox*    filterCombo_;
+    QLineEdit*    searchEdit_;
     QTableWidget* table_;
-    QPushButton* refreshBtn_;
-    QPushButton* clearBtn_;
-    QLabel* countLabel_;
+    QPushButton*  refreshBtn_;
+    QPushButton*  exportBtn_;
+    QPushButton*  clearBtn_;
+    QLabel*       countLabel_;
 };

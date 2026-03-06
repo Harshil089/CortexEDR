@@ -1,4 +1,7 @@
 #include "AboutPanel.hpp"
+#include <QHBoxLayout>
+#include <QFrame>
+#include <QFont>
 
 AboutPanel::AboutPanel(QWidget* parent)
     : QWidget(parent)
@@ -8,93 +11,95 @@ AboutPanel::AboutPanel(QWidget* parent)
 
 void AboutPanel::setupUI()
 {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(16);
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(28, 24, 28, 24);
+    root->setSpacing(0);
 
-    // Title
-    QLabel* title = new QLabel("About CortexEDR");
-    title->setProperty("class", "title");
-    QFont titleFont("Segoe UI", 24, QFont::Bold);
-    title->setFont(titleFont);
+    // ── Page title ───────────────────────────────────────────────────────────
+    QLabel* pageTitle = new QLabel("About");
+    pageTitle->setObjectName("PageTitle");
+    QFont tf("Segoe UI", 20, QFont::DemiBold);
+    pageTitle->setFont(tf);
+    root->addWidget(pageTitle);
+    root->addSpacing(20);
 
-    layout->addWidget(title);
-    layout->addSpacing(24);
+    // ── Product identity ─────────────────────────────────────────────────────
+    QLabel* productName = new QLabel("CortexEDR");
+    QFont pf("Segoe UI", 30, QFont::Bold);
+    productName->setFont(pf);
+    productName->setStyleSheet("color: #ffffff;");
 
-    // Logo area
-    QLabel* logoLabel = new QLabel("CortexEDR");
-    QFont logoFont("Segoe UI", 36, QFont::Bold);
-    logoLabel->setFont(logoFont);
-    logoLabel->setStyleSheet("color: #00BCD4;");
-    logoLabel->setAlignment(Qt::AlignCenter);
+    QLabel* productTagline = new QLabel("Endpoint Detection & Response");
+    productTagline->setObjectName("PageSubtitle");
 
-    QLabel* tagline = new QLabel("Endpoint Detection & Response");
-    QFont tagFont("Segoe UI", 14);
-    tagline->setFont(tagFont);
-    tagline->setStyleSheet("color: #8B949E;");
-    tagline->setAlignment(Qt::AlignCenter);
+    root->addWidget(productName);
+    root->addWidget(productTagline);
+    root->addSpacing(24);
 
-    layout->addWidget(logoLabel);
-    layout->addWidget(tagline);
-    layout->addSpacing(24);
+    // ── Info card ────────────────────────────────────────────────────────────
+    QFrame* card = new QFrame();
+    card->setObjectName("Card");
+    QVBoxLayout* cl = new QVBoxLayout(card);
+    cl->setContentsMargins(24, 20, 24, 20);
+    cl->setSpacing(0);
 
-    // Info card
-    QFrame* infoCard = new QFrame();
-    infoCard->setStyleSheet(
-        "QFrame { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; }");
+    auto addRow = [&](const QString& label, const QString& value, bool lastInGroup = false) {
+        QFrame* row = new QFrame();
+        QHBoxLayout* rl = new QHBoxLayout(row);
+        rl->setContentsMargins(0, 10, 0, 10);
+        rl->setSpacing(16);
 
-    QVBoxLayout* infoLayout = new QVBoxLayout(infoCard);
-    infoLayout->setContentsMargins(32, 24, 32, 24);
-    infoLayout->setSpacing(16);
+        QLabel* lbl = new QLabel(label);
+        lbl->setStyleSheet("color: rgba(255,255,255,0.35); font-size: 12px;");
+        lbl->setFixedWidth(160);
 
-    auto addInfoRow = [&](const QString& label, const QString& value) {
-        QHBoxLayout* row = new QHBoxLayout();
-        QLabel* labelWidget = new QLabel(label);
-        QFont lFont("Segoe UI", 12);
-        labelWidget->setFont(lFont);
-        labelWidget->setStyleSheet("color: #8B949E;");
-        labelWidget->setFixedWidth(180);
+        QLabel* val = new QLabel(value);
+        val->setStyleSheet("color: rgba(255,255,255,0.80); font-size: 12px;");
+        val->setWordWrap(true);
 
-        QLabel* valueWidget = new QLabel(value);
-        QFont vFont("Segoe UI", 12, QFont::DemiBold);
-        valueWidget->setFont(vFont);
-        valueWidget->setStyleSheet("color: #E6EDF3;");
+        rl->addWidget(lbl);
+        rl->addWidget(val, 1);
+        cl->addWidget(row);
 
-        row->addWidget(labelWidget);
-        row->addWidget(valueWidget, 1);
-        infoLayout->addLayout(row);
+        if (!lastInGroup) {
+            QFrame* sep = new QFrame();
+            sep->setObjectName("HRule");
+            sep->setFrameShape(QFrame::HLine);
+            sep->setFixedHeight(1);
+            cl->addWidget(sep);
+        }
     };
 
-    addInfoRow("Version:", "1.0.0");
-    addInfoRow("Engine:", "CortexEDR Detection Engine");
-    addInfoRow("Architecture:", "x64 (Windows 10/11)");
-    addInfoRow("Build:", "C++20 / Qt 6 / MSVC 2022");
-    addInfoRow("License:", "Educational / Portfolio Project");
+    addRow("Version",           "1.0.0");
+    addRow("Engine",            "CortexEDR Detection Engine");
+    addRow("Architecture",      "x64  (Windows 10/11)");
+    addRow("Build",             "C++20  /  Qt 6  /  MSVC 2022");
+    addRow("License",           "Educational / Portfolio Project", true);
 
-    // Separator
-    QFrame* separator = new QFrame();
-    separator->setFrameShape(QFrame::HLine);
-    separator->setStyleSheet("background-color: #30363D; max-height: 1px;");
-    infoLayout->addWidget(separator);
+    // Section divider
+    QFrame* groupSep = new QFrame();
+    groupSep->setStyleSheet("background-color: rgba(255,255,255,0.06);");
+    groupSep->setFixedHeight(1);
+    cl->addWidget(groupSep);
 
-    addInfoRow("Process Monitor:", "ETW-based (Kernel Provider)");
-    addInfoRow("File Monitor:", "ReadDirectoryChangesW");
-    addInfoRow("Network Monitor:", "IP Helper API (TCP/UDP)");
-    addInfoRow("Registry Monitor:", "RegNotifyChangeKeyValue");
-    addInfoRow("Risk Engine:", "Weighted Scoring + Rules + Behavior");
-    addInfoRow("Incident Manager:", "State Machine + JSON Persistence");
+    addRow("Process Monitor",   "ETW-based (Kernel Provider)");
+    addRow("File Monitor",      "ReadDirectoryChangesW");
+    addRow("Network Monitor",   "IP Helper API (TCP/UDP)");
+    addRow("Registry Monitor",  "RegNotifyChangeKeyValue");
+    addRow("Risk Engine",       "Weighted Scoring + Rules + Behavior");
+    addRow("Incident Manager",  "State Machine + JSON Persistence", true);
 
-    layout->addWidget(infoCard);
+    root->addWidget(card);
+    root->addSpacing(16);
 
-    // Footer
+    // ── Footer ────────────────────────────────────────────────────────────────
     QLabel* footer = new QLabel(
         "Built with modern C++ practices: RAII, smart pointers, thread safety,\n"
-        "event-driven architecture, and clean MVC separation.");
-    footer->setProperty("class", "dimText");
+        "event-driven architecture, and clean separation of concerns.");
+    footer->setStyleSheet("color: rgba(255,255,255,0.15); font-size: 11px;");
     footer->setAlignment(Qt::AlignCenter);
     footer->setWordWrap(true);
 
-    layout->addSpacing(16);
-    layout->addWidget(footer);
-    layout->addStretch();
+    root->addWidget(footer);
+    root->addStretch();
 }

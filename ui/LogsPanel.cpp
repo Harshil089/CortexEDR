@@ -1,5 +1,12 @@
 #include "LogsPanel.hpp"
 #include "EDRBridge.hpp"
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+#include <QMessageBox>
+#include <QVBoxLayout>
+#include <QLabel>
 
 LogsPanel::LogsPanel(EDRBridge* bridge, QWidget* parent)
     : QWidget(parent), bridge_(bridge)
@@ -9,64 +16,79 @@ LogsPanel::LogsPanel(EDRBridge* bridge, QWidget* parent)
 
 void LogsPanel::setupUI()
 {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(16);
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(28, 24, 28, 24);
+    root->setSpacing(14);
 
-    // Title
-    QLabel* title = new QLabel("Event Logs");
-    title->setProperty("class", "title");
-    QFont titleFont("Segoe UI", 24, QFont::Bold);
-    title->setFont(titleFont);
+    // ── Page header ──────────────────────────────────────────────────────────
+    QLabel* pageTitle = new QLabel("Event Logs");
+    pageTitle->setObjectName("PageTitle");
+    QFont tf("Segoe UI", 20, QFont::DemiBold);
+    pageTitle->setFont(tf);
 
-    QLabel* desc = new QLabel("View all system events, threats detected, and scan activity");
-    desc->setProperty("class", "subtitle");
-    desc->setWordWrap(true);
+    QLabel* pageSub = new QLabel("System events, threat detections, and scan activity");
+    pageSub->setObjectName("PageSubtitle");
 
-    layout->addWidget(title);
-    layout->addWidget(desc);
+    root->addWidget(pageTitle);
+    root->addWidget(pageSub);
+    root->addSpacing(4);
 
-    // Toolbar row
+    // ── Toolbar ───────────────────────────────────────────────────────────────
     QHBoxLayout* toolbar = new QHBoxLayout();
-    toolbar->setSpacing(12);
+    toolbar->setSpacing(10);
 
+    // Filter
     QLabel* filterLabel = new QLabel("Filter:");
-    QFont filterFont("Segoe UI", 12);
-    filterLabel->setFont(filterFont);
+    filterLabel->setStyleSheet("color: rgba(255,255,255,0.35); font-size: 12px;");
 
     filterCombo_ = new QComboBox();
     filterCombo_->addItems({"All", "Threats", "System Events", "Scan Logs"});
-    filterCombo_->setMinimumWidth(180);
+    filterCombo_->setFixedHeight(30);
+
+    // Search
+    searchEdit_ = new QLineEdit();
+    searchEdit_->setPlaceholderText("Search file path or details...");
+    searchEdit_->setFixedHeight(30);
+    searchEdit_->setMinimumWidth(220);
 
     countLabel_ = new QLabel("0 entries");
-    countLabel_->setProperty("class", "dimText");
+    countLabel_->setStyleSheet("color: rgba(255,255,255,0.25); font-size: 12px;");
 
     refreshBtn_ = new QPushButton("Refresh");
+    refreshBtn_->setObjectName("GhostBtn");
+    refreshBtn_->setFixedHeight(30);
     refreshBtn_->setCursor(Qt::PointingHandCursor);
-    refreshBtn_->setMinimumHeight(36);
 
-    clearBtn_ = new QPushButton("Clear Logs");
-    clearBtn_->setProperty("class", "danger");
+    exportBtn_ = new QPushButton("Export CSV");
+    exportBtn_->setObjectName("GhostBtn");
+    exportBtn_->setFixedHeight(30);
+    exportBtn_->setCursor(Qt::PointingHandCursor);
+
+    clearBtn_ = new QPushButton("Clear View");
+    clearBtn_->setObjectName("GhostBtn");
+    clearBtn_->setFixedHeight(30);
     clearBtn_->setCursor(Qt::PointingHandCursor);
-    clearBtn_->setMinimumHeight(36);
 
     connect(filterCombo_, &QComboBox::currentTextChanged, this, &LogsPanel::onFilterChanged);
-    connect(refreshBtn_, &QPushButton::clicked, this, &LogsPanel::refreshLogs);
-    connect(clearBtn_, &QPushButton::clicked, this, [this]() {
+    connect(searchEdit_,  &QLineEdit::textChanged,        this, &LogsPanel::refreshLogs);
+    connect(refreshBtn_,  &QPushButton::clicked,          this, &LogsPanel::refreshLogs);
+    connect(exportBtn_,   &QPushButton::clicked,          this, &LogsPanel::onExportCsv);
+    connect(clearBtn_,    &QPushButton::clicked,          this, [this]() {
         table_->setRowCount(0);
         countLabel_->setText("0 entries");
     });
 
     toolbar->addWidget(filterLabel);
     toolbar->addWidget(filterCombo_);
+    toolbar->addWidget(searchEdit_, 1);
     toolbar->addStretch();
     toolbar->addWidget(countLabel_);
     toolbar->addWidget(refreshBtn_);
+    toolbar->addWidget(exportBtn_);
     toolbar->addWidget(clearBtn_);
+    root->addLayout(toolbar);
 
-    layout->addLayout(toolbar);
-
-    // Log table
+    // ── Log table ─────────────────────────────────────────────────────────────
     table_ = new QTableWidget();
     table_->setColumnCount(5);
     table_->setHorizontalHeaderLabels({"Timestamp", "Type", "Severity", "File Path", "Details"});
@@ -81,8 +103,10 @@ void LogsPanel::setupUI()
     table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
     table_->setSortingEnabled(true);
 
-    layout->addWidget(table_, 1);
+    root->addWidget(table_, 1);
 }
+
+// ─── Data ─────────────────────────────────────────────────────────────────────
 
 void LogsPanel::refreshLogs()
 {
@@ -92,41 +116,123 @@ void LogsPanel::refreshLogs()
 void LogsPanel::onFilterChanged(const QString& filter)
 {
     auto entries = bridge_->getLogEntries(filter);
+    const QString search = searchEdit_->text().trimmed();
 
+    // Apply client-side search filter
+    if (!search.isEmpty()) {
+        QVector<LogEntry> filtered;
+        filtered.reserve(entries.size());
+        for (const auto& e : entries) {
+            if (e.filePath.contains(search, Qt::CaseInsensitive) ||
+                e.details.contains(search, Qt::CaseInsensitive)) {
+                filtered.append(e);
+            }
+        }
+        populateTable(filtered);
+    } else {
+        populateTable(entries);
+    }
+}
+
+void LogsPanel::populateTable(const QVector<LogEntry>& entries)
+{
     table_->setSortingEnabled(false);
     table_->setRowCount(entries.size());
 
     for (int i = 0; i < entries.size(); ++i) {
-        const auto& entry = entries[i];
+        const auto& e = entries[i];
 
-        auto* timestampItem = new QTableWidgetItem(
-            entry.timestamp.toString("yyyy-MM-dd hh:mm:ss.zzz"));
-        table_->setItem(i, 0, timestampItem);
+        // Timestamp — monospace
+        auto* tsItem = new QTableWidgetItem(
+            e.timestamp.toString("yyyy-MM-dd hh:mm:ss.zzz"));
+        tsItem->setFont(QFont("Cascadia Code", 10));
+        tsItem->setForeground(QColor(255,255,255,90));
 
-        auto* typeItem = new QTableWidgetItem(entry.eventType);
-        if (entry.eventType == "Threat") {
-            typeItem->setForeground(QColor("#F44336"));
-        } else if (entry.eventType == "Scan") {
-            typeItem->setForeground(QColor("#2196F3"));
-        } else {
-            typeItem->setForeground(QColor("#8B949E"));
-        }
+        // Type — color coded
+        auto* typeItem = new QTableWidgetItem(e.eventType.toUpper());
+        QFont typef("Segoe UI", 11, QFont::Bold);
+        typeItem->setFont(typef);
+        if (e.eventType == "Threat")
+            typeItem->setForeground(QColor("#f87171"));
+        else if (e.eventType == "Scan")
+            typeItem->setForeground(QColor("#60a5fa"));
+        else
+            typeItem->setForeground(QColor(255,255,255,90));
+
+        // Severity badge — color coded
+        auto* sevItem = new QTableWidgetItem(e.severity.toUpper());
+        QFont sevf("Segoe UI", 10, QFont::Bold);
+        sevItem->setFont(sevf);
+        sevItem->setTextAlignment(Qt::AlignCenter);
+        if (e.severity == "Critical")
+            sevItem->setForeground(QColor("#f87171"));
+        else if (e.severity == "Warning")
+            sevItem->setForeground(QColor("#fbbf24"));
+        else
+            sevItem->setForeground(QColor("#4ade80"));
+
+        // File path — truncated in tooltip
+        auto* pathItem = new QTableWidgetItem(e.filePath);
+        pathItem->setForeground(QColor(255,255,255,115));
+        pathItem->setFont(QFont("Cascadia Code", 10));
+
+        // Details — truncated, full text in tooltip
+        QString detailsShort = e.details.length() > 80
+            ? e.details.left(77) + "..."
+            : e.details;
+        auto* detItem = new QTableWidgetItem(detailsShort);
+        detItem->setToolTip(e.details);
+        detItem->setForeground(QColor(255,255,255,180));
+
+        table_->setItem(i, 0, tsItem);
         table_->setItem(i, 1, typeItem);
-
-        auto* sevItem = new QTableWidgetItem(entry.severity);
-        if (entry.severity == "Critical") {
-            sevItem->setForeground(QColor("#F44336"));
-        } else if (entry.severity == "Warning") {
-            sevItem->setForeground(QColor("#FF9800"));
-        } else {
-            sevItem->setForeground(QColor("#4CAF50"));
-        }
         table_->setItem(i, 2, sevItem);
-
-        table_->setItem(i, 3, new QTableWidgetItem(entry.filePath));
-        table_->setItem(i, 4, new QTableWidgetItem(entry.details));
+        table_->setItem(i, 3, pathItem);
+        table_->setItem(i, 4, detItem);
     }
 
     table_->setSortingEnabled(true);
     countLabel_->setText(QString("%1 entries").arg(entries.size()));
+}
+
+// ─── Export ───────────────────────────────────────────────────────────────────
+
+void LogsPanel::onExportCsv()
+{
+    if (table_->rowCount() == 0) {
+        QMessageBox::information(this, "Export", "No log entries to export.");
+        return;
+    }
+
+    QString path = QFileDialog::getSaveFileName(
+        this,
+        "Export Logs",
+        QString("cortexedr_logs_%1.csv")
+            .arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss")),
+        "CSV Files (*.csv)");
+
+    if (path.isEmpty()) return;
+
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Export Failed",
+                             "Could not open file for writing: " + path);
+        return;
+    }
+
+    QTextStream out(&file);
+    out << "Timestamp,Type,Severity,File Path,Details\n";
+
+    for (int r = 0; r < table_->rowCount(); ++r) {
+        QStringList row;
+        for (int c = 0; c < 5; ++c) {
+            QString cell = table_->item(r, c) ? table_->item(r, c)->text() : "";
+            // Escape double-quotes and wrap fields in quotes
+            cell.replace("\"", "\"\"");
+            row << "\"" + cell + "\"";
+        }
+        out << row.join(",") << "\n";
+    }
+
+    file.close();
 }

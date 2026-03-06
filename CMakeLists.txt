@@ -266,7 +266,16 @@ if(BUILD_GUI)
             COMMENT "Deploying Qt6 runtime DLLs..."
         )
 
+        # Copy the UI stylesheet resources directory next to the executable
+        add_custom_command(TARGET CortexEDR_GUI POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                    "${CMAKE_CURRENT_SOURCE_DIR}/ui/resources"
+                    "$<TARGET_FILE_DIR:CortexEDR_GUI>/resources"
+            COMMENT "Copying UI stylesheet resources..."
+        )
+
         install(TARGETS CortexEDR_GUI RUNTIME DESTINATION bin)
+        install(DIRECTORY ui/resources/ DESTINATION bin/resources)
 
         message(STATUS "Qt6 GUI target: CortexEDR_GUI enabled")
     else()

@@ -10,102 +10,93 @@ FullScanPanel::FullScanPanel(EDRBridge* bridge, QWidget* parent)
 
 void FullScanPanel::setupUI()
 {
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(32, 28, 32, 28);
-    layout->setSpacing(16);
+    QVBoxLayout* root = new QVBoxLayout(this);
+    root->setContentsMargins(28, 24, 28, 24);
+    root->setSpacing(14);
 
-    // Title
-    titleLabel_ = new QLabel("Full System Scan");
-    titleLabel_->setProperty("class", "title");
-    QFont titleFont("Segoe UI", 24, QFont::Bold);
-    titleLabel_->setFont(titleFont);
+    // ── Page header ──────────────────────────────────────────────────────────
+    QLabel* pageTitle = new QLabel("Full System Scan");
+    pageTitle->setObjectName("PageTitle");
+    QFont tf("Segoe UI", 20, QFont::DemiBold);
+    pageTitle->setFont(tf);
 
-    QLabel* desc = new QLabel("Deep scan of all files on all drives. This may take a while.");
-    desc->setProperty("class", "subtitle");
-    desc->setWordWrap(true);
+    QLabel* pageSub = new QLabel("Deep scan of all files on all drives");
+    pageSub->setObjectName("PageSubtitle");
 
-    layout->addWidget(titleLabel_);
-    layout->addWidget(desc);
-    layout->addSpacing(16);
+    root->addWidget(pageTitle);
+    root->addWidget(pageSub);
+    root->addSpacing(4);
 
-    // Status card
-    QFrame* statusFrame = new QFrame();
-    statusFrame->setObjectName("fullScanStatusFrame");
-    statusFrame->setStyleSheet(
-        "QFrame#fullScanStatusFrame { background-color: #161B22; border: 1px solid #30363D; border-radius: 12px; }");
+    // ── Status card ──────────────────────────────────────────────────────────
+    QFrame* statusCard = new QFrame();
+    statusCard->setObjectName("Card");
+    {
+        QVBoxLayout* sl = new QVBoxLayout(statusCard);
+        sl->setContentsMargins(20, 16, 20, 16);
+        sl->setSpacing(10);
 
-    QVBoxLayout* statusLayout = new QVBoxLayout(statusFrame);
-    statusLayout->setContentsMargins(24, 20, 24, 20);
-    statusLayout->setSpacing(12);
+        statusLabel_ = new QLabel("Ready");
+        QFont sf("Segoe UI", 14, QFont::DemiBold);
+        statusLabel_->setFont(sf);
+        statusLabel_->setStyleSheet("color: rgba(255,255,255,0.35);");
 
-    statusLabel_ = new QLabel("Ready to scan");
-    QFont statusFont("Segoe UI", 16, QFont::DemiBold);
-    statusLabel_->setFont(statusFont);
-    statusLabel_->setStyleSheet("color: #8B949E;");
+        progressBar_ = new QProgressBar();
+        progressBar_->setObjectName("ScanningBar");
+        progressBar_->setRange(0, 100);
+        progressBar_->setValue(0);
+        progressBar_->setTextVisible(false);
 
-    progressBar_ = new QProgressBar();
-    progressBar_->setMinimum(0);
-    progressBar_->setMaximum(100);
-    progressBar_->setValue(0);
-    progressBar_->setMinimumHeight(28);
+        // Current file + ETA on same row
+        QHBoxLayout* infoRow = new QHBoxLayout();
+        currentFileLabel_ = new QLabel();
+        currentFileLabel_->setStyleSheet(
+            "color: rgba(255,255,255,0.25); font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px;");
 
-    QHBoxLayout* infoRow = new QHBoxLayout();
-    currentFileLabel_ = new QLabel("");
-    currentFileLabel_->setProperty("class", "dimText");
-    currentFileLabel_->setWordWrap(true);
-    QFont monoFont("Cascadia Code", 10);
-    currentFileLabel_->setFont(monoFont);
+        estimatedTimeLabel_ = new QLabel();
+        estimatedTimeLabel_->setStyleSheet(
+            "color: rgba(255,255,255,0.35); font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px;");
+        estimatedTimeLabel_->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
 
-    estimatedTimeLabel_ = new QLabel("");
-    estimatedTimeLabel_->setStyleSheet("color: #00BCD4; font-size: 13px; font-weight: bold;");
-    estimatedTimeLabel_->setAlignment(Qt::AlignRight);
+        infoRow->addWidget(currentFileLabel_, 1);
+        infoRow->addWidget(estimatedTimeLabel_);
 
-    infoRow->addWidget(currentFileLabel_, 1);
-    infoRow->addWidget(estimatedTimeLabel_);
+        threatsCountLabel_ = new QLabel("Threats found: 0");
+        QFont tf2("Segoe UI", 12, QFont::DemiBold);
+        threatsCountLabel_->setFont(tf2);
+        threatsCountLabel_->setStyleSheet("color: #4ade80;");
 
-    threatsCountLabel_ = new QLabel("Threats found: 0");
-    QFont threatFont("Segoe UI", 13, QFont::DemiBold);
-    threatsCountLabel_->setFont(threatFont);
-    threatsCountLabel_->setStyleSheet("color: #4CAF50;");
+        sl->addWidget(statusLabel_);
+        sl->addWidget(progressBar_);
+        sl->addLayout(infoRow);
+        sl->addWidget(threatsCountLabel_);
+    }
+    root->addWidget(statusCard);
 
-    statusLayout->addWidget(statusLabel_);
-    statusLayout->addWidget(progressBar_);
-    statusLayout->addLayout(infoRow);
-    statusLayout->addWidget(threatsCountLabel_);
+    // ── Action buttons ───────────────────────────────────────────────────────
+    QHBoxLayout* btnRow = new QHBoxLayout();
+    btnRow->setSpacing(10);
 
-    layout->addWidget(statusFrame);
-
-    // Buttons
-    QHBoxLayout* btnLayout = new QHBoxLayout();
-    btnLayout->setSpacing(12);
-
-    QFont btnFont("Segoe UI", 13, QFont::DemiBold);
-
-    startBtn_ = new QPushButton("  Start Full Scan");
-    startBtn_->setProperty("class", "primary");
-    startBtn_->setMinimumHeight(44);
+    startBtn_ = new QPushButton("Start Full Scan");
+    startBtn_->setObjectName("PrimaryBtn");
+    startBtn_->setFixedHeight(34);
     startBtn_->setCursor(Qt::PointingHandCursor);
-    startBtn_->setFont(btnFont);
 
-    pauseBtn_ = new QPushButton("  Pause");
-    pauseBtn_->setProperty("class", "warning");
-    pauseBtn_->setMinimumHeight(44);
+    pauseBtn_ = new QPushButton("Pause");
+    pauseBtn_->setObjectName("WarningBtn");
+    pauseBtn_->setFixedHeight(34);
     pauseBtn_->setCursor(Qt::PointingHandCursor);
-    pauseBtn_->setFont(btnFont);
     pauseBtn_->setVisible(false);
 
-    resumeBtn_ = new QPushButton("  Resume");
-    resumeBtn_->setProperty("class", "success");
-    resumeBtn_->setMinimumHeight(44);
+    resumeBtn_ = new QPushButton("Resume");
+    resumeBtn_->setObjectName("PrimaryBtn");
+    resumeBtn_->setFixedHeight(34);
     resumeBtn_->setCursor(Qt::PointingHandCursor);
-    resumeBtn_->setFont(btnFont);
     resumeBtn_->setVisible(false);
 
-    cancelBtn_ = new QPushButton("  Cancel");
-    cancelBtn_->setProperty("class", "danger");
-    cancelBtn_->setMinimumHeight(44);
+    cancelBtn_ = new QPushButton("Cancel");
+    cancelBtn_->setObjectName("DestructiveBtn");
+    cancelBtn_->setFixedHeight(34);
     cancelBtn_->setCursor(Qt::PointingHandCursor);
-    cancelBtn_->setFont(btnFont);
     cancelBtn_->setVisible(false);
 
     connect(startBtn_, &QPushButton::clicked, this, &FullScanPanel::startScan);
@@ -115,7 +106,7 @@ void FullScanPanel::setupUI()
         pauseBtn_->setVisible(false);
         resumeBtn_->setVisible(true);
         statusLabel_->setText("Paused");
-        statusLabel_->setStyleSheet("color: #FF9800;");
+        statusLabel_->setStyleSheet("color: #fbbf24; font-size: 14px; font-weight: 600;");
     });
     connect(resumeBtn_, &QPushButton::clicked, this, [this]() {
         bridge_->resumeScan();
@@ -123,33 +114,31 @@ void FullScanPanel::setupUI()
         resumeBtn_->setVisible(false);
         pauseBtn_->setVisible(true);
         statusLabel_->setText("Scanning...");
-        statusLabel_->setStyleSheet("color: #00BCD4;");
+        statusLabel_->setStyleSheet("color: #60a5fa; font-size: 14px; font-weight: 600;");
     });
     connect(cancelBtn_, &QPushButton::clicked, bridge_, &EDRBridge::cancelScan);
 
-    btnLayout->addWidget(startBtn_);
-    btnLayout->addWidget(pauseBtn_);
-    btnLayout->addWidget(resumeBtn_);
-    btnLayout->addWidget(cancelBtn_);
-    btnLayout->addStretch();
+    btnRow->addWidget(startBtn_);
+    btnRow->addWidget(pauseBtn_);
+    btnRow->addWidget(resumeBtn_);
+    btnRow->addWidget(cancelBtn_);
+    btnRow->addStretch();
+    root->addLayout(btnRow);
 
-    layout->addLayout(btnLayout);
-
-    // Directory traversal log
-    QLabel* logTitle = new QLabel("Directory Traversal Log");
-    logTitle->setProperty("class", "sectionTitle");
-    QFont secFont("Segoe UI", 14, QFont::DemiBold);
-    logTitle->setFont(secFont);
+    // ── Directory traversal log ───────────────────────────────────────────────
+    QLabel* logTitle = new QLabel("SCAN LOG");
+    logTitle->setObjectName("SectionTitle");
+    root->addSpacing(4);
+    root->addWidget(logTitle);
 
     directoryLog_ = new QTextEdit();
     directoryLog_->setReadOnly(true);
+    directoryLog_->setPlaceholderText("Real-time scan activity will appear here...");
     directoryLog_->setMinimumHeight(200);
-    directoryLog_->setPlaceholderText("Real-time scan log will appear here...");
-
-    layout->addSpacing(8);
-    layout->addWidget(logTitle);
-    layout->addWidget(directoryLog_, 1);
+    root->addWidget(directoryLog_, 1);
 }
+
+// ─── State Machine ────────────────────────────────────────────────────────────
 
 void FullScanPanel::startScan()
 {
@@ -161,13 +150,13 @@ void FullScanPanel::startScan()
 
 void FullScanPanel::setIdleState()
 {
-    statusLabel_->setText("Ready to scan");
-    statusLabel_->setStyleSheet("color: #8B949E;");
+    statusLabel_->setText("Ready");
+    statusLabel_->setStyleSheet("color: rgba(255,255,255,0.35); font-size: 14px; font-weight: 600;");
     progressBar_->setValue(0);
-    currentFileLabel_->setText("");
-    estimatedTimeLabel_->setText("");
+    currentFileLabel_->clear();
+    estimatedTimeLabel_->clear();
     threatsCountLabel_->setText("Threats found: 0");
-    threatsCountLabel_->setStyleSheet("color: #4CAF50;");
+    threatsCountLabel_->setStyleSheet("color: #4ade80; font-size: 12px; font-weight: 600;");
     startBtn_->setVisible(true);
     startBtn_->setEnabled(true);
     pauseBtn_->setVisible(false);
@@ -179,11 +168,13 @@ void FullScanPanel::setIdleState()
 void FullScanPanel::setScanningState()
 {
     statusLabel_->setText("Scanning...");
-    statusLabel_->setStyleSheet("color: #00BCD4;");
+    statusLabel_->setStyleSheet("color: #60a5fa; font-size: 14px; font-weight: 600;");
     startBtn_->setVisible(false);
     pauseBtn_->setVisible(true);
     cancelBtn_->setVisible(true);
 }
+
+// ─── Signal Handlers ──────────────────────────────────────────────────────────
 
 void FullScanPanel::onProgressChanged(int percent)
 {
@@ -192,24 +183,22 @@ void FullScanPanel::onProgressChanged(int percent)
 
 void FullScanPanel::onCurrentFileChanged(const QString& filePath)
 {
-    QString display = filePath;
-    if (display.length() > 80) {
-        display = "..." + display.right(77);
-    }
+    QString display = filePath.length() > 90
+        ? "..." + filePath.right(87)
+        : filePath;
     currentFileLabel_->setText(display);
 
-    // Add to directory log (limit entries)
+    // Log every 5th file to avoid flooding
     static int logCount = 0;
-    logCount++;
-    if (logCount % 5 == 0) {  // Log every 5th file to avoid flooding
+    if (++logCount % 5 == 0) {
         directoryLog_->append(
-            QString("<span style='color:#8B949E;'>[%1]</span> <span style='color:#E6EDF3;'>%2</span>")
-                .arg(QDateTime::currentDateTime().toString("hh:mm:ss"), filePath));
-
-        // Auto-scroll to bottom
-        QTextCursor cursor = directoryLog_->textCursor();
-        cursor.movePosition(QTextCursor::End);
-        directoryLog_->setTextCursor(cursor);
+            QString("<span style='color:rgba(255,255,255,0.12);'>%1</span> "
+                    "<span style='color:rgba(255,255,255,0.30);'>%2</span>")
+                .arg(QDateTime::currentDateTime().toString("hh:mm:ss"),
+                     filePath.toHtmlEscaped()));
+        QTextCursor c = directoryLog_->textCursor();
+        c.movePosition(QTextCursor::End);
+        directoryLog_->setTextCursor(c);
     }
 }
 
@@ -217,36 +206,35 @@ void FullScanPanel::onThreatDetected(const QString& filePath, const QString& thr
 {
     threatsFound_++;
     threatsCountLabel_->setText(QString("Threats found: %1").arg(threatsFound_));
-    threatsCountLabel_->setStyleSheet("color: #F44336;");
+    threatsCountLabel_->setStyleSheet("color: #f87171; font-size: 12px; font-weight: 600;");
 
     directoryLog_->append(
-        QString("<span style='color:#F44336;'>THREAT DETECTED</span> "
-                "<span style='color:#FF9800;'>%1</span> "
-                "<span style='color:#8B949E;'>in %2</span>")
-            .arg(threatName, filePath));
+        QString("<span style='color:#f87171;font-weight:600;'>THREAT</span> "
+                "<span style='color:#fbbf24;'>%1</span> "
+                "<span style='color:rgba(255,255,255,0.35);'>&nbsp;in %2</span>")
+            .arg(threatName.toHtmlEscaped(), filePath.toHtmlEscaped()));
 }
 
 void FullScanPanel::onScanFinished(int totalFiles, int threatsFound)
 {
     progressBar_->setValue(100);
     estimatedTimeLabel_->setText("Complete");
-    currentFileLabel_->setText("Scan complete");
+    currentFileLabel_->setText("Scan finished");
 
+    const QString color = threatsFound > 0 ? "#f87171" : "#4ade80";
     if (threatsFound > 0) {
-        statusLabel_->setText(QString("Scan complete - %1 threats found").arg(threatsFound));
-        statusLabel_->setStyleSheet("color: #F44336;");
+        statusLabel_->setText(QString("Complete — %1 threat(s) found").arg(threatsFound));
+        statusLabel_->setStyleSheet("color: #f87171; font-size: 14px; font-weight: 600;");
     } else {
-        statusLabel_->setText("Scan complete - No threats found");
-        statusLabel_->setStyleSheet("color: #4CAF50;");
+        statusLabel_->setText("Complete — No threats found");
+        statusLabel_->setStyleSheet("color: #4ade80; font-size: 14px; font-weight: 600;");
     }
 
     directoryLog_->append(
-        QString("\n<span style='color:#00BCD4;'>===== SCAN COMPLETE =====</span>\n"
-                "<span style='color:#E6EDF3;'>Files scanned: %1</span>\n"
-                "<span style='color:%2;'>Threats found: %3</span>")
-            .arg(totalFiles)
-            .arg(threatsFound > 0 ? "#F44336" : "#4CAF50")
-            .arg(threatsFound));
+        QString("<br><span style='color:rgba(255,255,255,0.10);'>─────────────────────────────</span><br>"
+                "<span style='color:rgba(255,255,255,0.85);'>Files scanned: %1</span>   "
+                "<span style='color:%2;'>Threats: %3</span>")
+            .arg(totalFiles).arg(color).arg(threatsFound));
 
     startBtn_->setVisible(true);
     startBtn_->setEnabled(true);
@@ -257,5 +245,5 @@ void FullScanPanel::onScanFinished(int totalFiles, int threatsFound)
 
 void FullScanPanel::onEstimatedTimeChanged(const QString& timeRemaining)
 {
-    estimatedTimeLabel_->setText("ETA: " + timeRemaining);
+    estimatedTimeLabel_->setText("ETA " + timeRemaining);
 }
