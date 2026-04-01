@@ -2,9 +2,34 @@
 
 This document explains the most important parts of the codebase and where each part is implemented so you can present the project clearly.
 
+## 0) Quick Glossary (Simple Definitions)
+
+- Endpoint Detection and Response (EDR): Security software that watches a computer (endpoint), detects suspicious activity, and helps respond to attacks.
+- Telemetry: Raw activity data collected from the system (for example process start, file write, network connect).
+- Event-driven architecture: A design where components communicate by sending events instead of directly calling each other.
+- Event Bus: A central message hub where producers publish events and consumers subscribe to them.
+- Publisher/Subscriber (pub/sub): Publisher sends data; subscriber receives data if it subscribed to that event type.
+- Multithreading: Running multiple tasks at the same time using separate threads.
+- Thread Pool: A reusable set of worker threads used to run tasks asynchronously.
+- Asynchronous processing: Work that runs in the background without blocking the main flow.
+- IOC (Indicator of Compromise): A known suspicious artifact such as a bad hash, path, IP, or registry key.
+- Rule Engine: Component that compares incoming events with predefined detection rules.
+- Malware signature: A unique pattern (hash/string/behavior) used to recognize known malicious files or activity.
+- YARA: A standard malware-pattern matching technology used by many security products.
+- Heuristic detection: Detecting suspicious behavior using logic/rules, not just exact known signatures.
+- Behavior correlation: Combining multiple low-level events into a higher-level attack pattern.
+- Containment: Defensive action to limit damage (kill process, quarantine file, block network).
+- Quarantine: Move/isolate a suspicious file so it cannot run.
+- Persistence (attacker persistence): Techniques malware uses to stay active after reboot (for example Run keys).
+- IPC (Inter-Process Communication): How backend and GUI processes exchange data.
+- ETW (Event Tracing for Windows): Windows event system used to capture runtime activity.
+
 ## 1) Big Picture: What This System Does
 
 CortexEDR is a Windows Endpoint Detection and Response prototype built in C++20.
+
+Definition in simple words:
+- CortexEDR continuously watches system activity, scores risk, checks for known bad indicators, and helps contain threats.
 
 Core flow:
 1. Collect security events from Windows (process, file, network, registry).
@@ -20,6 +45,9 @@ Main orchestration lives in:
 
 ### Core Infrastructure
 
+Definition:
+- Infrastructure here means shared building blocks used by all modules (messaging, threads, logs).
+
 - Event system (pub/sub):
   - `core/EventBus.hpp`
   - `core/EventBus.cpp`
@@ -31,6 +59,9 @@ Main orchestration lives in:
   - `core/Logger.cpp`
 
 ### Collectors (Data Ingestion)
+
+Definition:
+- Collectors are listeners/sensors that gather telemetry from different parts of Windows.
 
 - Process monitoring via ETW:
   - `collectors/ProcessMonitor.hpp`
@@ -46,6 +77,9 @@ Main orchestration lives in:
   - `collectors/RegistryMonitor.cpp`
 
 ### Detection and Analysis Engine
+
+Definition:
+- This is the "brain" that decides whether an event is normal or suspicious.
 
 - Risk scoring:
   - `engine/RiskScorer.hpp`
@@ -63,6 +97,10 @@ Main orchestration lives in:
 
 ### Incident and Response
 
+Definition:
+- Incident management tracks a security case from first alert to closure.
+- Response means taking action to reduce impact.
+
 - Incident state machine and persistence hooks:
   - `response/IncidentManager.hpp`
   - `response/IncidentManager.cpp`
@@ -71,6 +109,11 @@ Main orchestration lives in:
   - `response/ContainmentManager.cpp`
 
 ### Persistence, Audit, and IPC/UI
+
+Definition:
+- Persistence means saving data permanently (database).
+- Audit means writing trustworthy logs for investigation/compliance.
+- IPC/UI means getting backend data safely into the visual dashboard.
 
 - SQLite persistence:
   - `persistence/DatabaseManager.hpp`
@@ -96,6 +139,9 @@ Main orchestration lives in:
 
 Threading in this codebase is explicit and modular.
 
+Definition:
+- Multithreading means splitting work into parallel threads so one slow task does not freeze the whole system.
+
 ### A) Collector Threads
 
 - `ProcessMonitor` starts one ETW processing thread (`ProcessTrace` loop).
@@ -106,6 +152,7 @@ Threading in this codebase is explicit and modular.
 Why this design:
 - Keeps each data source independent.
 - Prevents one slow collector from blocking others.
+- Improves real-time monitoring because multiple sensors can run in parallel.
 
 ### B) EventBus + Async Delivery
 
@@ -113,18 +160,30 @@ Why this design:
 - `EventBus::PublishAsync` uses an internal `ThreadPool` (`InitAsyncPool(2)` in `main.cpp`).
 - Subscribers are copied under lock, then invoked outside lock to reduce lock contention risk.
 
+Definition:
+- Lock contention means many threads waiting for the same lock. Invoking callbacks outside the lock reduces waiting.
+
 ### C) Shared State Safety
 
 - `RiskScorer` and `RuleEngine` use `std::shared_mutex` for read-heavy concurrency.
 - `ThreadPool` uses mutex + condition variable + task queue.
 - Atomic flags are used for run/stop state in monitors.
 
+Definition:
+- Shared state safety means protecting shared memory so two threads do not corrupt data.
+
 ### D) GUI Threading
 
 - `EDRBridge` starts dedicated `QThread` workers for IPC and scanning.
 - Pipe callbacks are marshaled into Qt thread context using queued invocations.
 
+Definition:
+- Marshaling here means moving a callback from one thread to the correct UI-safe thread.
+
 ## 4) Detection Pipeline Explained
+
+Definition:
+- Pipeline means a sequence of stages, where each stage adds analysis and passes results forward.
 
 ### Step 1: Event Generation
 
@@ -145,6 +204,9 @@ Collectors publish `Event` objects with metadata such as:
 
 Risk is capped to 100 and mapped to levels.
 
+Definition:
+- Risk scoring converts suspicious signals into a numeric score so alerts can be prioritized.
+
 ### Step 3: Rule Engine (IOC Matching)
 
 `RuleEngine` loads YAML rules from `config/rules.yaml` and checks events by rule type:
@@ -155,6 +217,9 @@ Risk is capped to 100 and mapped to levels.
 
 On a match, it emits a `RISK_THRESHOLD_EXCEEDED` event with metadata like `rule_name`, `risk_points`, and `action`.
 
+Definition:
+- IOC matching is exact/pattern matching against known suspicious indicators.
+
 ### Step 4: Behavior Correlation
 
 `BehaviorCorrelator` keeps per-process timelines and detects higher-level attack patterns:
@@ -164,6 +229,9 @@ On a match, it emits a `RISK_THRESHOLD_EXCEEDED` event with metadata like `rule_
 
 It emits asynchronous detection events when a pattern is found.
 
+Definition:
+- Correlation means "one event alone may be harmless, but several events together may indicate an attack."
+
 ### Step 5: Incident and Response
 
 `IncidentManager` subscribes to risk/containment events and drives an incident state machine:
@@ -171,9 +239,17 @@ It emits asynchronous detection events when a pattern is found.
 
 `ContainmentManager` can terminate/suspend processes and quarantine files.
 
+Definition:
+- Incident state machine = predefined status flow to keep investigations consistent.
+
 ## 5) YARA Rules and Malware Signatures: What Is Actually Implemented
 
 This is an important section to present accurately.
+
+Simple definitions for class:
+- YARA rules: pattern rules normally compiled and run by libyara.
+- Malware signatures: known identifiers of malware (most commonly hashes, strings, or stable behavior patterns).
+- In this project: signatures are currently represented as YAML IOC rules, not native libyara rules.
 
 ### What IS implemented
 
@@ -192,6 +268,13 @@ This is an important section to present accurately.
 
 Presentation-safe phrasing:
 - "The project currently uses a YARA-like IOC engine based on YAML rules. True YARA engine integration is a clear next enhancement."
+
+How malware signatures are used right now (easy explanation):
+1. Rules are written in `config/rules.yaml`.
+2. At startup, `RuleEngine` loads these rules into memory.
+3. Each incoming event is checked against rule patterns (hash/path/network/registry).
+4. If matched, the engine adds risk points and emits a detection event.
+5. Incident and containment modules consume that event and respond.
 
 ## 6) Known Implementation Gaps You Can Mention Professionally
 
@@ -247,3 +330,7 @@ flowchart TD
 ## 8) 60-Second Presentation Script (Optional)
 
 "CortexEDR is a modular, event-driven EDR prototype. Windows collectors generate telemetry and publish to a central EventBus. Three analysis layers run in parallel: heuristic risk scoring, IOC rule matching from YAML, and behavior correlation over process timelines. Detection events drive an incident state machine and optional containment actions such as process termination, suspension, and quarantine. The backend persists data in SQLite and exposes real-time status to the Qt dashboard using shared memory and pipe-based IPC. For signatures, we currently use a YARA-like custom rule model with hash/path/network/registry indicators, and true libyara integration is planned as the next step." 
+
+## 9) 30-Second Non-Technical Script (Very Simple)
+
+"This project is like a security control room for a computer. Different sensors watch apps, files, network traffic, and registry changes. All this data goes to a central hub, where three checks happen: a risk score, known bad-signature matching, and suspicious behavior pattern matching. If danger is detected, the system creates an incident and can take action, like stopping a process or isolating a file. The dashboard then shows live status. Right now, signature detection is built with YAML rules; adding full YARA support is the next upgrade." 
